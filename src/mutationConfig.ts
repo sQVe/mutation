@@ -75,8 +75,9 @@ export const mergedConfig = (
 // the run, which is Stryker's sandbox, so paths the config builds from `import.meta.url` reach the
 // mutated sources. Vite's loader reads it, as Vitest would, and gets the environment Vitest passes.
 // Vitest reads `include` relative to the root, so each file is made relative to the effective root.
-// In-source tests are turned off, so only the given test files run. Vitest projects carry their own `include`, so a loaded config that sets `test.projects` or
-// `test.workspace` is refused: the setting's name goes to the marker file and the load throws.
+// In-source tests are turned off, so only the given test files run. Vitest projects carry their
+// own `include`, so a loaded config that sets `test.projects` or `test.workspace` is refused: the
+// setting's name goes to the marker file and the load throws.
 export const vitestFolderConfigSource = (
   base: { viteUrl: string; path: string; markerPath: string } | undefined,
   testFiles: readonly string[],
