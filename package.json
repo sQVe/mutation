@@ -1,0 +1,92 @@
+{
+  "name": "@sqve/mutation",
+  "version": "0.0.0",
+  "description": "Diff-scoped StrykerJS mutation testing with a JSON report, for Vitest and Bun projects.",
+  "keywords": [
+    "bun",
+    "mutation-testing",
+    "stryker",
+    "vitest"
+  ],
+  "homepage": "https://github.com/sQVe/mutation#readme",
+  "bugs": "https://github.com/sQVe/mutation/issues",
+  "license": "MIT",
+  "author": "Oskar Grunning",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sQVe/mutation.git"
+  },
+  "bin": {
+    "mutation": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    "./ignorer": {
+      "types": "./dist/mutationIgnorer.d.ts",
+      "default": "./dist/mutationIgnorer.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "changeset": "changeset",
+    "changeset:check": "changeset status --since=origin/main",
+    "changeset:version": "changeset version && vp fmt",
+    "check": "pnpm typecheck && pnpm style:check && pnpm format:check && pnpm build && pnpm test",
+    "format": "vp fmt",
+    "format:check": "vp fmt --check",
+    "lint": "vp lint --deny-warnings",
+    "prepare": "vp config",
+    "release": "pnpm run check && changeset publish",
+    "style:check": "seam",
+    "style:fix": "seam --fix",
+    "test": "vp test",
+    "typecheck": "tsc --noEmit",
+    "prepack": "pnpm build"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "1.0.1",
+    "@changesets/cli": "3.0.2",
+    "@hughescr/stryker-bun-runner": "1.6.0",
+    "@sqve/seam": "0.2.0",
+    "@stryker-mutator/api": "10.0.0",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/instrumenter": "10.0.0",
+    "@stryker-mutator/util": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
+    "@types/node": "24.13.3",
+    "minimatch": "10.2.6",
+    "typescript": "7.0.2",
+    "vite-plus": "0.3.0",
+    "vitest": "4.1.11"
+  },
+  "peerDependencies": {
+    "@hughescr/stryker-bun-runner": "^1.6.0",
+    "@stryker-mutator/api": "^10.0.0",
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/instrumenter": "^10.0.0",
+    "@stryker-mutator/util": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@hughescr/stryker-bun-runner": {
+      "optional": true
+    },
+    "@stryker-mutator/vitest-runner": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=24.21.0"
+  },
+  "packageManager": "pnpm@12.3.4"
+}
