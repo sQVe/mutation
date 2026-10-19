@@ -79,14 +79,22 @@ const wholeFileRanges = (scope: FileScope) =>
         end: { line: end - 1, column: Number.MAX_SAFE_INTEGER },
       }));
 
-const instrumentScope = async (root: string, scope: FileScope, config: StrykerConfig) => {
+export const instrumentScope = async (
+  root: string,
+  scope: FileScope,
+  config: StrykerConfig,
+): Promise<InstrumentedMutants> => {
   const instrumenter = new Instrumenter(noopLogger);
   const ignorers = enabledIgnorers(config.ignorers, mutationIgnorer);
   const content = readFileSync(join(root, scope.path), 'utf8');
 
   const result = await instrumenter.instrument(
     [{ name: scope.path, content, mutate: wholeFileRanges(scope) }],
-    { plugins: null, excludedMutations: config.mutator?.excludedMutations ?? [], ignorers },
+    {
+      plugins: config.mutator?.plugins ?? null,
+      excludedMutations: config.mutator?.excludedMutations ?? [],
+      ignorers,
+    },
   );
 
   return result.mutants;

@@ -16,7 +16,12 @@ export interface MergedConfig extends StrykerConfig {
 export const configSchema = z.looseObject({
   mutate: z.array(z.string()),
   thresholds: z.record(z.string(), z.unknown()).optional(),
-  mutator: z.looseObject({ excludedMutations: z.array(z.string()).optional() }).optional(),
+  mutator: z
+    .looseObject({
+      excludedMutations: z.array(z.string()).optional(),
+      plugins: z.array(z.unknown()).nullable().optional(),
+    })
+    .optional(),
   ignorers: z.array(z.string()).optional(),
   plugins: z.array(z.string()).optional(),
   ignoreStatic: z.boolean().optional(),
