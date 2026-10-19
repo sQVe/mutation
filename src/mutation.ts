@@ -92,6 +92,20 @@ const instrumentScope = async (root: string, scope: FileScope, config: StrykerCo
   return result.mutants;
 };
 
+// Stryker reports a backslash in a file name as a path separator. Map each key back to the tracked
+// path.
+const withScopePaths = (report: StrykerReport, scopes: readonly FileScope[]): StrykerReport => {
+  const scopePaths = new Map(scopes.map(({ path }) => [path.replaceAll('\\', '/'), path]));
+
+  const files: StrykerReport['files'] = {};
+
+  for (const [path, file] of Object.entries(report.files)) {
+    files[scopePaths.get(path) ?? path] = file;
+  }
+
+  return { ...report, files };
+};
+
 const readSources = (root: string, report: StrykerReport) =>
   Object.fromEntries(
     Object.keys(report.files).map((path) => [path, readFileSync(join(root, path), 'utf8')]),
@@ -128,7 +142,7 @@ export const mutate = async (
   const { run, unmutated } = fitCap(counts, command.maxMutants);
   const runScopes = scopes.filter(({ path }) => run.includes(path));
 
-  const stryker =
+  const rawReport =
     runScopes.length === 0
       ? undefined
       : runStrykerReport({
@@ -139,6 +153,8 @@ export const mutate = async (
           sameFolderTests: command.sameFolderTests,
           mutantsOf,
         });
+
+  const stryker = rawReport === undefined ? undefined : withScopePaths(rawReport, runScopes);
 
   const sources = stryker === undefined ? {} : readSources(root, stryker);
 

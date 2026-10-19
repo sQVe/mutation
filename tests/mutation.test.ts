@@ -153,6 +153,98 @@ describe.each(['vitest', 'bun'] as const)('mutation changed with the %s runner',
   );
 });
 
+const importingTest = (name: string) => `import { expect, it } from 'vitest';
+
+import { add, negate } from './${name}';
+
+it('adds', () => {
+  add(1, 2);
+});
+
+it('negates', () => expect(negate(2)).toBe(-2));
+`;
+
+// A backslash in an import path is not portable, so this test leaves the file uncovered.
+const unrelatedTest = `import { expect, it } from 'vitest';
+
+it('runs', () => expect(1).toBe(1));
+`;
+
+describe('mutation changed on one tracked file', () => {
+  const trackedProject = (name: string, testSource = importingTest(name), extraConfig = {}) =>
+    createProject(
+      { ...baseConfig, ...runnerConfig.vitest, ...extraConfig },
+      {
+        'vitest.config.ts': vitestConfig,
+        [`src/${name}`]: sources,
+        'src/math.test.ts': testSource,
+      },
+    );
+
+  const commitAll = (repository: string) => {
+    git(repository, 'add', '.');
+    git(repository, 'commit', '--quiet', '-m', 'base');
+  };
+
+  it(
+    `reports the whole survivor record of a changed line. ${stryker}`,
+    async () => {
+      const repository = await trackedProject('math.ts');
+
+      commitAll(repository);
+
+      await writeFile(
+        join(repository, 'src/math.ts'),
+        sources.replace('left + right', 'right + left'),
+      );
+
+      const { status, report } = runCommand(repository, ['changed', 'HEAD']);
+
+      expect(report.error).toBeUndefined();
+      expect(status).toBe(2);
+
+      expect(report.survivors).toEqual([
+        {
+          file: 'src/math.ts',
+          line: 1,
+          column: 53,
+          endLine: 1,
+          endColumn: 65,
+          mutator: 'ArithmeticOperator',
+          original: 'right + left',
+          replacement: 'right - left',
+          covered: true,
+        },
+      ]);
+    },
+    strykerTimeout,
+  );
+
+  it(
+    `runs the mutants of a tracked file whose name holds a backslash. ${stryker}`,
+    async () => {
+      const repository = await trackedProject('back\\slash.ts', unrelatedTest, {
+        vitest: { related: false },
+      });
+
+      commitAll(repository);
+
+      await writeFile(
+        join(repository, 'src/back\\slash.ts'),
+        sources.replace('left + right', 'right + left'),
+      );
+
+      const { status, report } = runCommand(repository, ['changed', 'HEAD']);
+
+      expect(report.error).toBeUndefined();
+      expect(status).toBe(2);
+      expect(report.totals).toMatchObject({ mutants: 2, killed: 0, survived: 2, noCoverage: 0 });
+      expect(report.unmutated).toEqual([]);
+    },
+    strykerTimeout,
+  );
+});
+
 describe('mutation with a refused config', () => {
   it.each([
     { name: 'no mutate list', config: { ...baseConfig, mutate: undefined } },
