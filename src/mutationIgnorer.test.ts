@@ -43,12 +43,21 @@ describe('mutationIgnorer', () => {
     expect(mutants.every(({ status }) => status !== 'Ignored')).toBe(true);
   });
 
+  it('keeps the mutants of a template message with a computed member access', async () => {
+    const mutants = await instrument('const a = { message: `value ${items[index + 1]}` };');
+
+    expect(mutants.length).toBeGreaterThan(0);
+    expect(mutants.every(({ status }) => status !== 'Ignored')).toBe(true);
+  });
+
   it.each([
     { name: 'a message property', source: "const a = { message: 'x' };" },
     { name: 'a title property', source: "const a = { title: 'x' };" },
     { name: 'a text property', source: "const a = { text: 'x' };" },
     { name: 'a disabledReason property', source: "const a = { disabledReason: 'x' };" },
     { name: 'a lines element', source: "const a = { lines: ['x', 'y'] };" },
+    { name: 'a quoted message property', source: "const a = { 'message': 'x' };" },
+    { name: 'a quoted lines element', source: "const a = { 'lines': ['x'] };" },
     { name: 'a template message with identifiers', source: 'const a = { message: `x ${name}` };' },
     { name: 'a template message with members', source: 'const a = { text: `x ${a.b.c}` };' },
     {
@@ -118,6 +127,10 @@ describe('mutationIgnorer', () => {
     { name: 'a nested array in lines', source: "const a = { lines: [['x']] };" },
     { name: 'a conditional outside a message', source: "const a = { other: p ? 'a' : 'b' };" },
     { name: 'a computed key named message', source: "const a = { [message]: 'x' };" },
+    {
+      name: 'the error of a result with a computed ok key',
+      source: "const a = { [ok]: false, error: 'x' };",
+    },
   ])('keeps a string mutant in $name', async ({ source }) => {
     const mutants = await stringMutants(source);
 

@@ -102,12 +102,17 @@ const isInvariantMessage = ({ parent, listKey, key }: BabelPath) => {
   return isAfterFirstArgument && isInvariantCall(parent);
 };
 
+// The name of a property with a static key: an identifier or a string literal, never `[key]`.
 const propertyName = (property: BabelNode) => {
-  if (property.type !== 'ObjectProperty') {
+  if (property.type !== 'ObjectProperty' || property.computed === true) {
     return undefined;
   }
 
   const { key } = property;
+
+  if (key?.type === 'StringLiteral') {
+    return typeof key.value === 'string' ? key.value : undefined;
+  }
 
   return key?.type === 'Identifier' ? key.name : undefined;
 };
@@ -159,7 +164,7 @@ const messagePropertyNames = new Set(['message', 'title', 'text', 'disabledReaso
 const isNamedPropertyValue = (path: BabelPath, names: ReadonlySet<string>) => {
   const { parent } = path;
 
-  if (parent.type !== 'ObjectProperty' || path.key !== 'value' || parent.computed === true) {
+  if (parent.type !== 'ObjectProperty' || path.key !== 'value') {
     return false;
   }
 
