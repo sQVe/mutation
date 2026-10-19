@@ -2,14 +2,13 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, join, relative, resolve } from 'node:path';
 
 import { z } from 'zod';
 
 import { configWithTestFiles, mergedConfig, vitestFolderConfigSource } from './mutationConfig.ts';
 import type { StrykerConfig } from './mutationConfig.ts';
-import { mergeStrykerReports } from './mutationReport.ts';
+import { mergeStrykerReports, withPlannedTests } from './mutationReport.ts';
 import type { Mutant, MutationMode, StrykerReport } from './mutationReport.ts';
 import { groupByFolder, mutatePatterns, unitTestFiles } from './mutationScope.ts';
 import type { FileScope } from './mutationScope.ts';
@@ -32,7 +31,11 @@ export interface StrykerRun {
 
 const reportSchema = z.looseObject({
   config: z
-    .looseObject({ ignoreStatic: z.boolean().optional(), testRunner: z.string().optional() })
+    .looseObject({
+      ignoreStatic: z.boolean().optional(),
+      testRunner: z.string().optional(),
+      vitest: z.looseObject({ related: z.boolean().optional() }).optional(),
+    })
     .optional(),
   files: z.record(
     z.string(),
@@ -70,7 +73,7 @@ const vitestConfigNames = ['vitest.config', 'vite.config'].flatMap((name) =>
 );
 
 // The project's own Vitest config, which Vitest would find itself without a `configFile`.
-const projectVitestConfig = (root: string, config: StrykerConfig) => {
+export const projectVitestConfig = (root: string, config: StrykerConfig): string | undefined => {
   const configured = config.vitest?.['configFile'];
 
   if (typeof configured === 'string') {
@@ -91,7 +94,7 @@ const parseReport = (reportPath: string): StrykerReport => {
 
   // SAFETY: reportSchema checks every field that StrykerReport types and keeps the rest.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the report is Stryker output.
-  return parsed.data as StrykerReport;
+  return withPlannedTests(parsed.data as StrykerReport);
 };
 
 const runStryker = (
@@ -134,9 +137,9 @@ const runFolder = (
 
   if (config.testRunner === 'vitest') {
     const base = projectVitestConfig(root, config);
-    const baseUrl = base === undefined ? undefined : pathToFileURL(base).href;
+    const baseRelative = base === undefined ? undefined : relative(root, base);
 
-    writeFileSync(vitestConfigFile, vitestFolderConfigSource(baseUrl, testFiles));
+    writeFileSync(vitestConfigFile, vitestFolderConfigSource(baseRelative, testFiles));
   }
 
   return runStryker(root, directory, String(index), withTests, folderScopes, mode);

@@ -72,17 +72,25 @@ export const mergedConfig = (
 });
 
 // The source of a Vitest config that runs the project's config with only the given test files.
-// A project config may be an object or a function of the Vitest environment.
+// A project config may be an object or a function of the Vitest environment. The base config is a
+// path relative to the project root. It loads from the working directory of the run, which is
+// Stryker's sandbox, so paths the config builds from `import.meta.url` reach the mutated sources.
 export const vitestFolderConfigSource = (
-  baseConfigUrl: string | undefined,
+  baseConfigPath: string | undefined,
   testFiles: readonly string[],
 ): string => {
   const include = JSON.stringify(testFiles.map(escapeGlob));
 
   const load =
-    baseConfigUrl === undefined
+    baseConfigPath === undefined
       ? 'const base = {};'
-      : `import base from ${JSON.stringify(baseConfigUrl)};`;
+      : [
+          "import { resolve } from 'node:path';",
+          "import { pathToFileURL } from 'node:url';",
+          '',
+          `const loaded = await import(pathToFileURL(resolve(process.cwd(), ${JSON.stringify(baseConfigPath)})).href);`,
+          'const base = loaded.default;',
+        ].join('\n');
 
   return [
     load,

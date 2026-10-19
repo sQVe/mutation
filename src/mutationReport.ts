@@ -16,11 +16,13 @@ export interface Mutant {
   coveredBy?: string[];
   killedBy?: string[];
   testsCompleted?: number;
+  // The tests Stryker planned for a static mutant in its own run, set before runs are merged.
+  plannedTests?: number;
 }
 
 // The part of Stryker's JSON report this module reads.
 export interface StrykerReport {
-  config?: { ignoreStatic?: boolean; testRunner?: string };
+  config?: { ignoreStatic?: boolean; testRunner?: string; vitest?: { related?: boolean } };
   files: Record<string, { mutants: Mutant[] }>;
   testFiles?: Record<string, { tests: { id: string; name: string }[] }>;
 }
@@ -161,19 +163,35 @@ const plannedCountOf = (report: StrykerReport | undefined) => {
   return (mutant: Mutant) => (ignoresStatic ? (mutant.coveredBy?.length ?? 0) : testCount);
 };
 
+// Records on each mutant the tests its own run planned, because merging reports adds up the test
+// lists of every run. It edits the report it is given.
+export const withPlannedTests = (report: StrykerReport): StrykerReport => {
+  const plannedCount = plannedCountOf(report);
+
+  for (const { mutants } of Object.values(report.files)) {
+    for (const mutant of mutants) {
+      mutant.plannedTests = plannedCount(mutant);
+    }
+  }
+
+  return report;
+};
+
 // A static mutant that makes a test file throw while Vitest loads it leaves that file's tests
-// unrun, yet Stryker reports it as Survived. The Bun runner scores a load failure as Killed.
+// unrun, yet Stryker reports it as Survived. The Bun runner scores a load failure as Killed. With
+// `vitest.related` on, a mutant runs only its related tests, so a smaller count proves nothing.
 const falseSurvivorTest = (report: StrykerReport | undefined) => {
   const plannedCount = plannedCountOf(report);
-  const isVitest = report?.config?.testRunner === 'vitest';
+
+  const canDetectLoadFailure =
+    report?.config?.testRunner === 'vitest' && report.config.vitest?.related !== true;
 
   return (mutant: Mutant) => {
     const isStaticSurvivor = mutant.static === true && mutant.status === 'Survived';
+    const planned = mutant.plannedTests ?? plannedCount(mutant);
+    const completedFewer = mutant.testsCompleted !== undefined && mutant.testsCompleted < planned;
 
-    const completedFewer =
-      mutant.testsCompleted !== undefined && mutant.testsCompleted < plannedCount(mutant);
-
-    return isVitest && isStaticSurvivor && completedFewer;
+    return canDetectLoadFailure && isStaticSurvivor && completedFewer;
   };
 };
 

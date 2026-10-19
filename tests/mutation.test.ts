@@ -39,7 +39,7 @@ const testModule = (runner: Runner) => (runner === 'bun' ? 'bun:test' : 'vitest'
 // The test next to the source pins only negate. The test in the other folder pins both.
 const sameFolderTest = (runner: Runner) => `import { expect, it } from '${testModule(runner)}';
 
-import { add, negate } from './math.ts';
+import { add, negate } from '${runner === 'vitest' ? '@math' : './math.ts'}';
 
 it('adds', () => {
   add(1, 2);
@@ -96,10 +96,16 @@ const runCommand = (repository: string, args: string[]) => {
 const survivorLines = ({ survivors }: MutationOutcome) =>
   survivors.map(({ file, line, mutator, covered }) => `${file}:${line} ${mutator} ${covered}`);
 
-// The Vitest fixture has its own config, which the same-folder run must extend.
-const vitestConfig = `import { defineConfig } from 'vitest/config';
+// The same-folder test imports the source through this alias, so the run fails to load the test
+// unless the generated config extends this one.
+const vitestConfig = `import { fileURLToPath } from 'node:url';
 
-export default defineConfig({ test: { include: ['**/*.test.ts'] } });
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  resolve: { alias: { '@math': fileURLToPath(new URL('./src/math/math.ts', import.meta.url)) } },
+  test: { include: ['**/*.test.ts'] },
+});
 `;
 
 const fixtureProject = (runner: Runner) =>
@@ -245,6 +251,130 @@ describe('mutation changed on one tracked file', () => {
   );
 });
 
+// A weak test cannot kill the static arithmetic mutant of `1 + 2`. Without ignoreStatic, Stryker
+// runs a static mutant against every test it plans, so a survivor must not read as a load failure.
+const staticValue = 'export const value = 1 + 2;\n';
+
+const weakTest = `import { expect, it } from 'vitest';
+
+import { value } from './value.ts';
+
+it('has a number', () => expect(typeof value).toBe('number'));
+`;
+
+const staticProject = () =>
+  createProject(
+    { ...baseConfig, ...runnerConfig.vitest, ignoreStatic: false },
+    {
+      'src/a/value.ts': staticValue,
+      'src/a/value.test.ts': weakTest,
+      'src/b/value.ts': staticValue,
+      'src/b/value.test.ts': weakTest,
+    },
+  );
+
+describe('mutation of static mutants without ignoreStatic', () => {
+  it.each([
+    {
+      name: 'a same-folder run over two folders',
+      args: ['--same-folder-tests', 'changed', 'HEAD'],
+    },
+    { name: 'a Vitest run with vitest.related on', args: ['changed', 'HEAD'] },
+  ])(
+    `reports the survivors of $name (${stryker})`,
+    async ({ args }) => {
+      const repository = await staticProject();
+
+      commitBase(repository);
+
+      const { status, report } = runCommand(repository, args);
+
+      expect(report.error).toBeUndefined();
+      expect(status).toBe(2);
+      expect(report.status).toBe('survivors');
+      expect(report.totals).toMatchObject({ mutants: 2, survived: 2, falseSurvived: 0 });
+      expect(report.falseSurvivors).toEqual([]);
+
+      expect(survivorLines(report)).toEqual([
+        'src/a/value.ts:1 ArithmeticOperator true',
+        'src/b/value.ts:1 ArithmeticOperator true',
+      ]);
+    },
+    strykerTimeout,
+  );
+});
+
+const uncovered = (line: number, column: number, endLine: number, endColumn: number) => ({
+  file: 'src/solo/solo.ts',
+  line,
+  column,
+  endLine,
+  endColumn,
+  covered: false,
+});
+
+describe('mutation of a folder with no test', () => {
+  const soloSource = `export const half = (value: number) => value / 2;
+
+export const fail = () => {
+  throw new Error('boom');
+};
+`;
+
+  it('reports every mutant as uncovered, not the ignored ones, and starts no Stryker run', async () => {
+    const repository = await createProject(
+      { ...baseConfig, ...runnerConfig.vitest },
+      {
+        'src/solo/solo.ts': soloSource,
+        'src/checks/solo.test.ts': `import { expect, it } from 'vitest';
+
+import { half } from '../solo/solo.ts';
+
+it('halves', () => expect(half(4)).toBe(2));
+`,
+      },
+    );
+
+    const { status, report } = runCommand(repository, [
+      '--same-folder-tests',
+      'audit',
+      'src/solo/solo.ts',
+    ]);
+
+    expect(report.error).toBeUndefined();
+    expect(status).toBe(0);
+    expect(report.status).toBe('survivors');
+    expect(report.totals).toMatchObject({ mutants: 4, killed: 0, survived: 0, noCoverage: 4 });
+
+    expect(report.survivors).toEqual([
+      {
+        ...uncovered(1, 21, 1, 49),
+        mutator: 'ArrowFunction',
+        original: '(value: number) => value / 2',
+        replacement: '() => undefined',
+      },
+      {
+        ...uncovered(1, 40, 1, 49),
+        mutator: 'ArithmeticOperator',
+        original: 'value / 2',
+        replacement: 'value * 2',
+      },
+      {
+        ...uncovered(3, 27, 5, 2),
+        mutator: 'BlockStatement',
+        original: "{ throw new Error('boom'); }",
+        replacement: '{}',
+      },
+      {
+        ...uncovered(4, 3, 4, 27),
+        mutator: 'CallExpression',
+        original: "throw new Error('boom');",
+        replacement: ';',
+      },
+    ]);
+  });
+});
+
 describe('mutation with a refused config', () => {
   it.each([
     { name: 'no mutate list', config: { ...baseConfig, mutate: undefined } },
@@ -258,6 +388,18 @@ describe('mutation with a refused config', () => {
     expect(report.status).toBe('error');
     expect(report.error).toContain('stryker.config.json');
     expect(report.survivors).toEqual([]);
+  });
+
+  it('reports a usage refusal with its own text', async () => {
+    const repository = await createProject(baseConfig, {});
+
+    const { status, report } = runCommand(repository, ['fix']);
+
+    expect(status).toBe(1);
+
+    expect(report.error).toBe(
+      'Unknown mode "fix". Usage: mutation [--same-folder-tests] [--max-mutants <n>] [--config <path>] changed <base> | audit <path>...',
+    );
   });
 
   it('exits 1 when --same-folder-tests meets a runner it cannot limit', async () => {

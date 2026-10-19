@@ -4,6 +4,7 @@ import {
   buildMutationReport,
   failedMutationReport,
   mergeStrykerReports,
+  withPlannedTests,
 } from './mutationReport.ts';
 import type { Mutant, MutationFacts, StrykerReport } from './mutationReport.ts';
 
@@ -357,6 +358,60 @@ describe('buildMutationReport with false survivors', () => {
     expect(report.status).toBe('error');
     expect(report.falseSurvivors).toHaveLength(1);
   });
+});
+
+describe('buildMutationReport with merged runs', () => {
+  const runOf = (path: string): StrykerReport => ({
+    config: { testRunner: 'vitest' },
+    files: { [path]: { mutants: [mutant({ static: true, testsCompleted: 1 })] } },
+    testFiles: { [`${path}.test.ts`]: { tests: [{ id: '0', name: 'only test' }] } },
+  });
+
+  it('compares a static survivor with the tests of its own run', () => {
+    const merged = mergeStrykerReports([
+      withPlannedTests(runOf('a/a.ts')),
+      withPlannedTests(runOf('b/b.ts')),
+    ]);
+
+    const { report, exitCode } = buildMutationReport({
+      mode: 'changed',
+      stryker: merged,
+      sources: {},
+      unmutated: [],
+    });
+
+    expect(report.survivors).toHaveLength(2);
+    expect(report.falseSurvivors).toEqual([]);
+    expect(exitCode).toBe(2);
+  });
+
+  it('records the covering tests of a run on its static mutants', () => {
+    const run = runOf('a/a.ts');
+
+    expect(withPlannedTests(run).files['a/a.ts']?.mutants[0]?.plannedTests).toBe(1);
+  });
+
+  it.each([
+    { related: true, survivors: 1, falseSurvivors: 0 },
+    { related: false, survivors: 0, falseSurvivors: 1 },
+  ])(
+    'reports a Vitest static survivor as $survivors survivor with vitest.related $related',
+    ({ related, survivors, falseSurvivors }) => {
+      const run = runOf('a/a.ts');
+      const facts = withTestCount(factsOf({}), 3);
+
+      facts.stryker = {
+        ...run,
+        testFiles: facts.stryker?.testFiles ?? {},
+        config: { testRunner: 'vitest', vitest: { related } },
+      };
+
+      const { report } = buildMutationReport(facts);
+
+      expect(report.survivors).toHaveLength(survivors);
+      expect(report.falseSurvivors).toHaveLength(falseSurvivors);
+    },
+  );
 });
 
 describe('buildMutationReport with a failed run', () => {

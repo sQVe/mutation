@@ -141,9 +141,10 @@ describe('configWithTestFiles', () => {
 
 describe('vitestFolderConfigSource', () => {
   it('limits the included tests and escapes glob characters', () => {
-    const source = vitestFolderConfigSource('file:///p/vite.config.ts', ['src/[id].test.ts']);
+    const source = vitestFolderConfigSource('config/vite.config.ts', ['src/[id].test.ts']);
 
-    expect(source).toContain('import base from "file:///p/vite.config.ts";');
+    expect(source).toContain('resolve(process.cwd(), "config/vite.config.ts")');
+    expect(source).not.toContain('import base from');
     expect(source).toContain('include: ["src/[[]id].test.ts"]');
   });
 
