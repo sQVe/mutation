@@ -7,6 +7,7 @@ interface BabelNode {
   callee?: BabelNode;
   key?: BabelNode;
   properties?: BabelNode[];
+  test?: BabelNode;
   alternate?: BabelNode;
   expressions?: BabelNode[];
   arguments?: BabelNode[];
@@ -117,10 +118,17 @@ const propertyName = (property: BabelNode) => {
   return key?.type === 'Identifier' ? key.name : undefined;
 };
 
+// Stryker tests whether a mutant is active with a call to its `stryMutAct_` helper.
+const isMutantSwitch = (node: BabelNode) =>
+  node.type === 'ConditionalExpression' &&
+  node.test?.type === 'CallExpression' &&
+  node.test.callee?.name?.startsWith('stryMutAct_') === true;
+
 // Stryker has already wrapped an expression that it mutated, as
-// `mutantA ? mutated : mutantB ? mutated : (coverMutant(...), original)`.
+// `mutantA ? mutated : mutantB ? mutated : (coverMutant(...), original)`. A conditional the
+// project wrote is not a wrapper, so it is its own original.
 const originalOf = (node: BabelNode): BabelNode => {
-  if (node.type === 'ConditionalExpression' && node.alternate !== undefined) {
+  if (isMutantSwitch(node) && node.alternate !== undefined) {
     return originalOf(node.alternate);
   }
 

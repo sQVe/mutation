@@ -131,6 +131,10 @@ describe('mutationIgnorer', () => {
       name: 'the error of a result with a computed ok key',
       source: "const a = { [ok]: false, error: 'x' };",
     },
+    {
+      name: 'the error of a result whose ok is a conditional',
+      source: "const a = { ok: flag ? true : false, error: 'x' };",
+    },
   ])('keeps a string mutant in $name', async ({ source }) => {
     const mutants = await stringMutants(source);
 
