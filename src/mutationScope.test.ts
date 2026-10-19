@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, matchesGlob } from 'node:path';
+import { join, matchesGlob, posix, win32 } from 'node:path';
 import { promisify } from 'node:util';
 
 import { Minimatch } from 'minimatch';
@@ -20,6 +20,7 @@ import {
   mutatePatterns,
   parseCommand,
   rejectedAuditPaths,
+  rootRelative,
   unitTestFiles,
   unreportedFiles,
 } from './mutationScope.ts';
@@ -105,6 +106,22 @@ describe('isProductionFile with absolute and parent-relative mutateGlobs', () =>
     },
   ])('gives $expected for $name', ({ mutateGlobs, path, expected }) => {
     expect(isProductionFile(path, mutateGlobs, matchesGlob, repositoryRoot)).toBe(expected);
+  });
+});
+
+describe('rootRelative', () => {
+  it.each([
+    { name: 'a drive-qualified absolute glob', target: 'C:/work/repo/src/**/*.ts' },
+    { name: 'a backslash absolute glob', target: 'C:\\work\\repo\\src\\**\\*.ts' },
+    { name: 'a ./ glob', target: './src/**/*.ts' },
+    { name: 'a parent-relative glob', target: '../repo/src/**/*.ts' },
+    { name: 'a glob in another case', target: 'c:/Work/Repo/src/**/*.ts' },
+  ])('gives a root-relative glob with / for $name on Windows', ({ target }) => {
+    expect(rootRelative(win32, 'C:/work/repo', target)).toBe('src/**/*.ts');
+  });
+
+  it('keeps a backslash escape on POSIX', () => {
+    expect(rootRelative(posix, '/work/repo', 'src/\\[a\\].ts')).toBe('src/\\[a\\].ts');
   });
 });
 
