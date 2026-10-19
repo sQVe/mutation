@@ -72,31 +72,39 @@ export const mergedConfig = (
 });
 
 // The source of a Vitest config that runs the project's config with only the given test files.
-// A project config may be an object or a function of the Vitest environment. The base config is a
-// path relative to the project root. It loads from the working directory of the run, which is
-// Stryker's sandbox, so paths the config builds from `import.meta.url` reach the mutated sources.
+// The base config is a path relative to the project root. It loads from the working directory of
+// the run, which is Stryker's sandbox, so paths the config builds from `import.meta.url` reach the
+// mutated sources. Vite's loader reads it, as Vitest would, and gets the environment Vitest passes.
 export const vitestFolderConfigSource = (
-  baseConfigPath: string | undefined,
+  base: { viteUrl: string; path: string } | undefined,
   testFiles: readonly string[],
 ): string => {
   const include = JSON.stringify(testFiles.map(escapeGlob));
 
   const load =
-    baseConfigPath === undefined
-      ? 'const base = {};'
+    base === undefined
+      ? 'const loadBase = async () => ({});'
       : [
           "import { resolve } from 'node:path';",
-          "import { pathToFileURL } from 'node:url';",
           '',
-          `const loaded = await import(pathToFileURL(resolve(process.cwd(), ${JSON.stringify(baseConfigPath)})).href);`,
-          'const base = loaded.default;',
+          `import { loadConfigFromFile } from ${JSON.stringify(base.viteUrl)};`,
+          '',
+          'const loadBase = async (environment) => {',
+          `  const loaded = await loadConfigFromFile(environment, resolve(process.cwd(), ${JSON.stringify(base.path)}));`,
+          '',
+          '  if (loaded === null) {',
+          `    throw new Error("Vite could not load ${base.path.replaceAll(/["\\]/g, '')}.");`,
+          '  }',
+          '',
+          '  return loaded.config;',
+          '};',
         ].join('\n');
 
   return [
     load,
     '',
     'export default async (environment) => {',
-    "  const config = typeof base === 'function' ? await base(environment) : base;",
+    '  const config = await loadBase(environment);',
     '',
     `  return { ...config, test: { ...config.test, include: ${include} } };`,
     '};',

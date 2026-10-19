@@ -141,14 +141,17 @@ describe('configWithTestFiles', () => {
 
 describe('vitestFolderConfigSource', () => {
   it('limits the included tests and escapes glob characters', () => {
-    const source = vitestFolderConfigSource('config/vite.config.ts', ['src/[id].test.ts']);
+    const source = vitestFolderConfigSource(
+      { viteUrl: 'file:///p/vite.js', path: 'config/vite.config.ts' },
+      ['src/[id].test.ts'],
+    );
 
     expect(source).toContain('resolve(process.cwd(), "config/vite.config.ts")');
-    expect(source).not.toContain('import base from');
+    expect(source).toContain('import { loadConfigFromFile } from "file:///p/vite.js";');
     expect(source).toContain('include: ["src/[[]id].test.ts"]');
   });
 
   it('starts from an empty config when the project has none', () => {
-    expect(vitestFolderConfigSource(undefined, ['a.test.ts'])).toContain('const base = {};');
+    expect(vitestFolderConfigSource(undefined, ['a.test.ts'])).toContain('async () => ({})');
   });
 });

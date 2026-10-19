@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { z } from 'zod';
 
@@ -19,6 +20,13 @@ export type InstrumentedMutants = readonly {
   status?: string;
   location: Mutant['location'];
 }[];
+
+interface ViteModule {
+  loadConfigFromFile: (
+    environment: { command: string; mode: string },
+    path: string,
+  ) => Promise<{ config: { test?: Record<string, unknown> } } | null>;
+}
 
 export interface StrykerRun {
   root: string;
@@ -85,6 +93,55 @@ export const projectVitestConfig = (root: string, config: StrykerConfig): string
   return found === undefined ? undefined : join(root, found);
 };
 
+const resolveFrom = (from: string, specifier: string): string | undefined => {
+  try {
+    return createRequire(from).resolve(specifier);
+  } catch {
+    return undefined;
+  }
+};
+
+// The generated config sits outside the project, so it imports the Vite that the project's Vitest
+// uses. With pnpm, that Vite is often reachable only from Vitest's own folder.
+const viteUrlOf = (root: string): string => {
+  const project = join(root, 'package.json');
+  const vitest = resolveFrom(project, 'vitest/package.json');
+  const besideVitest = vitest === undefined ? undefined : resolveFrom(vitest, 'vite');
+  const vite = besideVitest ?? resolveFrom(project, 'vite');
+
+  if (vite === undefined) {
+    throw new Error(
+      '--same-folder-tests with the Vitest runner needs "vite" to resolve from the project root or from "vitest".',
+    );
+  }
+
+  return pathToFileURL(vite).href;
+};
+
+const unsupportedSettings = ['projects', 'workspace'];
+
+// Vitest projects carry their own `include`, which the generated config does not override.
+export const refuseVitestProjects = async (root: string, config: StrykerConfig): Promise<void> => {
+  const base = projectVitestConfig(root, config);
+
+  if (base === undefined) {
+    return;
+  }
+
+  // SAFETY: Vite exports loadConfigFromFile with the shape ViteModule lists.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the module is loaded by URL.
+  const vite = (await import(viteUrlOf(root))) as ViteModule;
+  const loaded = await vite.loadConfigFromFile({ command: 'serve', mode: 'test' }, base);
+  const test = loaded?.config.test ?? {};
+  const found = unsupportedSettings.find((name) => test[name] !== undefined);
+
+  if (found !== undefined) {
+    throw new Error(
+      `${relative(root, base)} sets "test.${found}". --same-folder-tests does not support it.`,
+    );
+  }
+};
+
 const parseReport = (reportPath: string): StrykerReport => {
   const parsed = reportSchema.safeParse(JSON.parse(readFileSync(reportPath, 'utf8')));
 
@@ -137,9 +194,13 @@ const runFolder = (
 
   if (config.testRunner === 'vitest') {
     const base = projectVitestConfig(root, config);
-    const baseRelative = base === undefined ? undefined : relative(root, base);
 
-    writeFileSync(vitestConfigFile, vitestFolderConfigSource(baseRelative, testFiles));
+    const source = vitestFolderConfigSource(
+      base === undefined ? undefined : { viteUrl: viteUrlOf(root), path: relative(root, base) },
+      testFiles,
+    );
+
+    writeFileSync(vitestConfigFile, source);
   }
 
   return runStryker(root, directory, String(index), withTests, folderScopes, mode);
@@ -192,7 +253,11 @@ const runPerFolder = (run: StrykerRun, directory: string) => {
   return mergeStrykerReports([...reports, uncovered]);
 };
 
-export const runStrykerReport = (run: StrykerRun): StrykerReport => {
+export const runStrykerReport = async (run: StrykerRun): Promise<StrykerReport> => {
+  if (run.sameFolderTests && run.config.testRunner === 'vitest') {
+    await refuseVitestProjects(run.root, run.config);
+  }
+
   const directory = mkdtempSync(join(tmpdir(), 'mutation-'));
 
   try {

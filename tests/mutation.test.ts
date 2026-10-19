@@ -102,17 +102,22 @@ const vitestConfig = `import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'vitest/config';
 
+import { include } from './settings';
+
 export default defineConfig({
   resolve: { alias: { '@math': fileURLToPath(new URL('./src/math/math.ts', import.meta.url)) } },
-  test: { include: ['**/*.test.ts'] },
+  test: { include },
 });
 `;
+
+// An extensionless import only Vite's config loader resolves.
+const settings = "export const include = ['**/*.test.ts'];\n";
 
 const fixtureProject = (runner: Runner) =>
   createProject(
     { ...baseConfig, ...runnerConfig[runner] },
     {
-      ...(runner === 'vitest' ? { 'vitest.config.ts': vitestConfig } : {}),
+      ...(runner === 'vitest' ? { 'vitest.config.ts': vitestConfig, 'settings.ts': settings } : {}),
       'src/math/math.ts': sources,
       'src/math/math.test.ts': sameFolderTest(runner),
       'src/checks/math.test.ts': otherFolderTest(runner),
@@ -182,6 +187,7 @@ describe('mutation changed on one tracked file', () => {
       { ...baseConfig, ...runnerConfig.vitest, ...extraConfig },
       {
         'vitest.config.ts': vitestConfig,
+        'settings.ts': settings,
         [`src/${name}`]: sources,
         'src/math.test.ts': testSource,
       },
@@ -373,6 +379,35 @@ it('halves', () => expect(half(4)).toBe(2));
       },
     ]);
   });
+});
+
+describe('mutation with Vitest projects', () => {
+  it.each(['projects', 'workspace'])(
+    'refuses test.%s with --same-folder-tests',
+    async (setting) => {
+      const repository = await createProject(
+        { ...baseConfig, ...runnerConfig.vitest },
+        {
+          'vitest.config.ts': `export default { test: { ${setting}: [] } };\n`,
+          'src/math/math.ts': sources,
+          'src/math/math.test.ts': sameFolderTest('vitest'),
+        },
+      );
+
+      const { status, report } = runCommand(repository, [
+        '--same-folder-tests',
+        'audit',
+        'src/math/math.ts',
+      ]);
+
+      expect(status).toBe(1);
+      expect(report.status).toBe('error');
+
+      expect(report.error).toBe(
+        `vitest.config.ts sets "test.${setting}". --same-folder-tests does not support it.`,
+      );
+    },
+  );
 });
 
 describe('mutation with a refused config', () => {
