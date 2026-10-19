@@ -123,13 +123,21 @@ describe('configWithTestFiles', () => {
   });
 
   it('points the Vitest runner at the generated config and turns related off', () => {
-    const config = { mutate: [], testRunner: 'vitest', vitest: { dir: 'x' } };
+    const config = { mutate: [], testRunner: 'vitest', vitest: { bail: true } };
 
     expect(configWithTestFiles(config, ['src/a.test.ts'], 'v.mjs').vitest).toEqual({
-      dir: 'x',
+      bail: true,
       configFile: 'v.mjs',
       related: false,
     });
+  });
+
+  it('drops the Vitest dir, since the generated include names each test file from the root', () => {
+    const config = { mutate: [], testRunner: 'vitest', vitest: { dir: 'src' } };
+
+    expect(configWithTestFiles(config, ['src/a.test.ts'], 'v.mjs').vitest).not.toHaveProperty(
+      'dir',
+    );
   });
 
   it.each([undefined, 'command'])('refuses the %s runner', (testRunner) => {

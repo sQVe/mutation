@@ -154,9 +154,13 @@ export const configWithTestFiles = (
   }
 
   if (config.testRunner === 'vitest') {
+    // The generated include names each test file from the root, so another search folder would
+    // select files that do not exist.
+    const { dir: _searchFolder, ...vitest } = config.vitest ?? {};
+
     return {
       ...config,
-      vitest: { ...config.vitest, configFile: vitestConfigFile, related: false },
+      vitest: { ...vitest, configFile: vitestConfigFile, related: false },
     };
   }
 
