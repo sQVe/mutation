@@ -1,0 +1,8 @@
+overrides:
+  vite: npm:@voidzero-dev/vite-plus-core@0.3.0
+# Vite+ uses its own version for the Vite-compatible core.
+peerDependencyRules:
+  allowedVersions:
+    vite: 0.3.0
+    # The Bun runner declares typescript <7. Bun and Node run it with TypeScript 7.
+    typescript: 7.0.2
