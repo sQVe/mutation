@@ -108,6 +108,23 @@ describe('isProductionFile with absolute and parent-relative mutateGlobs', () =>
   });
 });
 
+describe('isProductionFile under a root with glob characters', () => {
+  const bracketRoot = '/work/repo[1]';
+
+  it.each([
+    { name: 'a plain glob', mutateGlobs: ['lib/**/*.ts'], path: 'lib/a.ts', expected: true },
+    { name: 'a ./ glob', mutateGlobs: ['./lib/**/*.ts'], path: 'lib/a.ts', expected: true },
+    {
+      name: 'an exclusion',
+      mutateGlobs: ['lib/**/*.ts', '!lib/**/*.test.ts'],
+      path: 'lib/a.test.ts',
+      expected: false,
+    },
+  ])('gives $expected for $name', ({ mutateGlobs, path, expected }) => {
+    expect(isProductionFile(path, mutateGlobs, matchesGlob, bracketRoot)).toBe(expected);
+  });
+});
+
 describe('isIgnoredByPatterns', () => {
   it.each([
     {
