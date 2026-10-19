@@ -122,6 +122,15 @@ describe('configWithTestFiles', () => {
     });
   });
 
+  it('replaces a top-level testFiles list for the Bun runner', () => {
+    const config = { mutate: [], testRunner: 'bun', testFiles: ['other/**/*.test.ts'] };
+
+    const limited = configWithTestFiles(config, ['src/a.test.ts'], 'v.mjs');
+
+    expect(limited).not.toHaveProperty('testFiles');
+    expect(limited.bun).toEqual({ testFiles: ['src/a.test.ts'] });
+  });
+
   it('points the Vitest runner at the generated config and turns related off', () => {
     const config = { mutate: [], testRunner: 'vitest', vitest: { bail: true } };
 

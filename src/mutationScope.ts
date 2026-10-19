@@ -27,17 +27,23 @@ export interface FileScope {
 
 const hunkPattern = /^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 
+// Stryker resolves each `mutate` glob and each file name against the root, so `./src/**`,
+// `src/**`, `../repo/src/**`, and an absolute glob into the root are the same glob. Both sides are
+// made absolute before they are matched.
 // A file is production code when a positive glob matches it and no `!` glob does.
 export const isProductionFile = (
   path: string,
   mutateGlobs: readonly string[],
   matches: GlobMatcher,
+  root: string,
 ): boolean => {
+  const absolutePath = posix.resolve(root, path);
+  const matchesGlob = (glob: string) => matches(absolutePath, posix.resolve(root, glob));
   const negated = mutateGlobs.filter((glob) => glob.startsWith('!'));
   const positive = mutateGlobs.filter((glob) => !glob.startsWith('!'));
-  const excluded = negated.some((glob) => matches(path, glob.slice(1)));
+  const excluded = negated.some((glob) => matchesGlob(glob.slice(1)));
 
-  return !excluded && positive.some((glob) => matches(path, glob));
+  return !excluded && positive.some(matchesGlob);
 };
 
 const matchesDirectoryPartially = (entryPath: string, rule: Minimatch) =>

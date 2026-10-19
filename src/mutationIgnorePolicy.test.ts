@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ignorerName, enabledIgnorers } from './mutationIgnorePolicy.ts';
+import { ignorerName, enabledIgnorers, unsupportedIgnorerError } from './mutationIgnorePolicy.ts';
 
 describe('enabledIgnorers', () => {
   it.each([
@@ -13,5 +13,21 @@ describe('enabledIgnorers', () => {
     const ignorer = { shouldIgnore: () => undefined };
 
     expect(enabledIgnorers(ignorers, ignorer)).toEqual(enabled ? [ignorer] : []);
+  });
+});
+
+describe('unsupportedIgnorerError', () => {
+  it.each([
+    { name: 'no list', ignorers: undefined },
+    { name: 'only the built-in ignorer', ignorers: [ignorerName] },
+  ])('accepts $name', ({ ignorers }) => {
+    expect(unsupportedIgnorerError(ignorers)).toBeUndefined();
+  });
+
+  it('names each other ignorer', () => {
+    const message = unsupportedIgnorerError([ignorerName, 'custom', 'second']);
+
+    expect(message).toContain('"custom", "second"');
+    expect(message).toContain('names "custom", "second".');
   });
 });
