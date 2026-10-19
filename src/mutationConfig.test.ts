@@ -148,7 +148,9 @@ describe('vitestFolderConfigSource', () => {
 
     expect(source).toContain('resolve(process.cwd(), "config/vite.config.ts")');
     expect(source).toContain('import { loadConfigFromFile } from "file:///p/vite.js";');
-    expect(source).toContain('include: ["src/[[]id].test.ts"]');
+    expect(source).toContain('const files = ["src/[id].test.ts"];');
+    expect(source).toContain('includeSource: []');
+    expect(source).toContain('config.test?.root ?? config.root');
   });
 
   it('writes the name of an unsupported setting to the marker file and throws', () => {

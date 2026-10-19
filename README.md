@@ -37,7 +37,8 @@ mutation [--same-folder-tests] audit <path>... [--max-mutants <n>] [--config <pa
   needs `testRunner` to be `vitest` or `bun`. The Bun runner gets the files as `bun.testFiles`. The
   Vitest runner gets a generated config that extends your Vitest config (`vitest.configFile`, or the
   `vitest.config.*` or `vite.config.*` file in the root), sets `test.include` to those files, and
-  turns `vitest.related` off. The switch is off by default.
+  turns `vitest.related` off. In-source tests (`test.includeSource`) do not run in this mode. The
+  generated patterns are relative to the config's `root`. The switch is off by default.
 - `--max-mutants` sets a cap. There is no cap by default.
 - `--config` names the Stryker config. The default is `stryker.config.json` in the root.
 

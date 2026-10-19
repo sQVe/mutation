@@ -112,8 +112,19 @@ console.log('vitest config loaded');
 
 export default defineConfig({
   resolve: { alias: { '@math': fileURLToPath(new URL('./src/math/math.ts', import.meta.url)) } },
-  test: { include },
+  root: fileURLToPath(new URL('./src', import.meta.url)),
+  test: { include, includeSource: ['checks/**/*.ts'] },
 });
+`;
+
+// An in-source test in another folder that kills the add mutant. Same-folder mode must not run it.
+const inSourceTest = `import { add } from '../math/math.ts';
+
+if (import.meta.vitest) {
+  const { expect, it } = import.meta.vitest;
+
+  it('adds in source', () => expect(add(1, 2)).toBe(3));
+}
 `;
 
 // An extensionless import only Vite's config loader resolves.
@@ -121,9 +132,19 @@ const settings = "export const include = ['**/*.test.ts'];\n";
 
 const fixtureProject = (runner: Runner) =>
   createProject(
-    { ...baseConfig, ...runnerConfig[runner] },
     {
-      ...(runner === 'vitest' ? { 'vitest.config.ts': vitestConfig, 'settings.ts': settings } : {}),
+      ...baseConfig,
+      ...runnerConfig[runner],
+      ...(runner === 'vitest' ? { mutate: ['src/math/**/*.ts', '!src/**/*.test.ts'] } : {}),
+    },
+    {
+      ...(runner === 'vitest'
+        ? {
+            'vitest.config.ts': vitestConfig,
+            'settings.ts': settings,
+            'src/checks/inline.ts': inSourceTest,
+          }
+        : {}),
       'src/math/math.ts': sources,
       'src/math/math.test.ts': sameFolderTest(runner),
       'src/checks/math.test.ts': otherFolderTest(runner),

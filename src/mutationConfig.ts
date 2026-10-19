@@ -5,7 +5,6 @@ import { z } from 'zod';
 
 import { ignorerName } from './mutationIgnorePolicy.ts';
 import type { MutationMode } from './mutationReport.ts';
-import { escapeGlob } from './mutationScope.ts';
 
 export interface MergedConfig extends StrykerConfig {
   reporters: string[];
@@ -75,21 +74,20 @@ export const mergedConfig = (
 // The base config is a path relative to the project root. It loads from the working directory of
 // the run, which is Stryker's sandbox, so paths the config builds from `import.meta.url` reach the
 // mutated sources. Vite's loader reads it, as Vitest would, and gets the environment Vitest passes.
-// Vitest projects carry their own `include`, so a loaded config that sets `test.projects` or
+// Vitest reads `include` relative to the root, so each file is made relative to the effective root.
+// In-source tests are turned off, so only the given test files run. Vitest projects carry their own `include`, so a loaded config that sets `test.projects` or
 // `test.workspace` is refused: the setting's name goes to the marker file and the load throws.
 export const vitestFolderConfigSource = (
   base: { viteUrl: string; path: string; markerPath: string } | undefined,
   testFiles: readonly string[],
 ): string => {
-  const include = JSON.stringify(testFiles.map(escapeGlob));
+  const files = JSON.stringify(testFiles);
 
   const load =
     base === undefined
       ? 'const loadBase = async () => ({});'
       : [
           "import { writeFileSync } from 'node:fs';",
-          "import { resolve } from 'node:path';",
-          '',
           `import { loadConfigFromFile } from ${JSON.stringify(base.viteUrl)};`,
           '',
           'const loadBase = async (environment) => {',
@@ -112,12 +110,32 @@ export const vitestFolderConfigSource = (
         ].join('\n');
 
   return [
+    "import { relative, resolve } from 'node:path';",
+    '',
     load,
+    '',
+    `const files = ${files};`,
+    '',
+    'const escapeGlob = (path) => path.replaceAll(/[*?[{}()]/g, "[$&]");',
+    '',
+    'const includeOf = (config) => {',
+    '  const root = resolve(process.cwd(), config.test?.root ?? config.root ?? ".");',
+    '',
+    '  return files.map((file) => {',
+    '    const inRoot = relative(root, resolve(process.cwd(), file)).split("\\\\").join("/");',
+    '',
+    '    if (inRoot.startsWith("..")) {',
+    '      throw new Error(file + " is outside the Vitest root " + root + ".");',
+    '    }',
+    '',
+    '    return escapeGlob(inRoot);',
+    '  });',
+    '};',
     '',
     'export default async (environment) => {',
     '  const config = await loadBase(environment);',
     '',
-    `  return { ...config, test: { ...config.test, include: ${include} } };`,
+    '  return { ...config, test: { ...config.test, include: includeOf(config), includeSource: [] } };',
     '};',
     '',
   ].join('\n');
