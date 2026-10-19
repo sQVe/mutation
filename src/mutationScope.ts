@@ -87,6 +87,20 @@ const headerPath = (line: string) => {
   return line.startsWith('+++ b/') ? line.slice('+++ b/'.length).replace(/\t$/, '') : undefined;
 };
 
+const parseHunk = (line: string) => {
+  const hunk = hunkPattern.exec(line);
+
+  if (hunk === null) {
+    return undefined;
+  }
+
+  const removed = hunk[1] === undefined ? 1 : Number(hunk[1]);
+  const start = Number(hunk[2]);
+  const count = hunk[3] === undefined ? 1 : Number(hunk[3]);
+
+  return { removed, start, count };
+};
+
 // Reads the added line ranges of a zero-context diff. A hunk that adds no lines gives no range.
 const addedRanges = (diff: string) => {
   const ranges = new Map<string, LineRange[]>();
@@ -94,6 +108,10 @@ const addedRanges = (diff: string) => {
   let bodyLines = 0;
 
   for (const line of diff.split('\n')) {
+    if (bodyLines > 0 && line.startsWith('\\')) {
+      continue;
+    }
+
     if (bodyLines > 0 && /^[-+ ]/.test(line)) {
       bodyLines -= 1;
 
@@ -108,15 +126,13 @@ const addedRanges = (diff: string) => {
       continue;
     }
 
-    const hunk = hunkPattern.exec(line);
+    const hunk = parseHunk(line);
 
-    if (path === undefined || hunk === null) {
+    if (path === undefined || hunk === undefined) {
       continue;
     }
 
-    const removed = hunk[1] === undefined ? 1 : Number(hunk[1]);
-    const start = Number(hunk[2]);
-    const count = hunk[3] === undefined ? 1 : Number(hunk[3]);
+    const { removed, start, count } = hunk;
 
     bodyLines = removed + count;
 

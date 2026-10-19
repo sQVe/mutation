@@ -340,6 +340,25 @@ describe('changedScope with a C-quoted path', () => {
   });
 });
 
+describe('changedScope with a no-newline marker', () => {
+  it('keeps a later hunk after a marker and an added line that starts with "++ "', () => {
+    const diff = diffOf('lib/a.ts', [
+      '@@ -3 +3 @@',
+      '-old',
+      '\\ No newline at end of file',
+      '+++ plus',
+      '@@ -9 +9 @@',
+      '-before',
+      '+after',
+    ]);
+
+    const scope = changedScope(diff, [], isProduction);
+
+    expect(scope.map(({ path }) => path)).toEqual(['lib/a.ts']);
+    expect(scope.flatMap(mutatePatterns)).toEqual(['lib/a.ts:3-3', 'lib/a.ts:9-9']);
+  });
+});
+
 describe('changedScope with awkward diffs', () => {
   const changeOf = async (names: string[], edit?: (root: string) => Promise<void>) => {
     const root = await createTemporaryRepository(onTestFinished);
