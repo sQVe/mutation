@@ -408,6 +408,26 @@ it('halves', () => expect(half(4)).toBe(2));
   });
 });
 
+describe('mutation of a file the config ignores', () => {
+  it('neither plans, counts, nor reports a changed file under an ignored folder', async () => {
+    const repository = await createProject(
+      { ...baseConfig, ...runnerConfig.vitest, ignorePatterns: ['generated'] },
+      { 'src/generated/math.ts': sources },
+    );
+
+    commitBase(repository);
+
+    const { status, report } = runCommand(repository, ['--same-folder-tests', 'changed', 'HEAD']);
+
+    expect(report.error).toBeUndefined();
+    expect(status).toBe(0);
+    expect(report.status).toBe('nothing');
+    expect(report.totals).toMatchObject({ mutants: 0, survived: 0, noCoverage: 0 });
+    expect(report.survivors).toEqual([]);
+    expect(report.unmutated).toEqual([]);
+  });
+});
+
 describe('mutation with Vitest projects', () => {
   it.each(['projects', 'workspace'])(
     'refuses test.%s with --same-folder-tests',
@@ -479,5 +499,29 @@ describe('mutation with a refused config', () => {
     expect(status).toBe(1);
     expect(report.status).toBe('error');
     expect(report.error).toContain('"vitest" or "bun"');
+  });
+});
+
+describe('mutation with an unsupported runner and a folder without tests', () => {
+  it('exits 1 with the runner error and no survivors', async () => {
+    const repository = await createProject(
+      { ...baseConfig, testRunner: 'jest' },
+      { 'src/solo/solo.ts': sources },
+    );
+
+    const { status, report } = runCommand(repository, [
+      '--same-folder-tests',
+      'audit',
+      'src/solo/solo.ts',
+    ]);
+
+    expect(status).toBe(1);
+    expect(report.status).toBe('error');
+
+    expect(report.error).toBe(
+      '--same-folder-tests needs "testRunner" to be "vitest" or "bun" in the config.',
+    );
+
+    expect(report.survivors).toEqual([]);
   });
 });

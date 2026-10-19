@@ -22,6 +22,7 @@ export const configSchema = z.looseObject({
       plugins: z.array(z.unknown()).nullable().optional(),
     })
     .optional(),
+  ignorePatterns: z.array(z.string()).optional(),
   ignorers: z.array(z.string()).optional(),
   plugins: z.array(z.string()).optional(),
   ignoreStatic: z.boolean().optional(),
@@ -147,6 +148,14 @@ export const vitestFolderConfigSource = (
   ].join('\n');
 };
 
+export const assertFolderRunner = (config: StrykerConfig): void => {
+  if (config.testRunner !== 'bun' && config.testRunner !== 'vitest') {
+    throw new Error(
+      '--same-folder-tests needs "testRunner" to be "vitest" or "bun" in the config.',
+    );
+  }
+};
+
 // Limits a run to the given test files. The Vitest runner has no such option, so it gets a
 // generated config file; the Bun runner takes the files directly.
 export const configWithTestFiles = (
@@ -154,20 +163,18 @@ export const configWithTestFiles = (
   testFiles: readonly string[],
   vitestConfigFile: string,
 ): StrykerConfig => {
+  assertFolderRunner(config);
+
   if (config.testRunner === 'bun') {
     return { ...config, bun: { ...config.bun, testFiles } };
   }
 
-  if (config.testRunner === 'vitest') {
-    // The generated include names each test file from the root, so another search folder would
-    // select files that do not exist.
-    const { dir: _searchFolder, ...vitest } = config.vitest ?? {};
+  // The generated include names each test file from the root, so another search folder would
+  // select files that do not exist.
+  const { dir: _searchFolder, ...vitest } = config.vitest ?? {};
 
-    return {
-      ...config,
-      vitest: { ...vitest, configFile: vitestConfigFile, related: false },
-    };
-  }
-
-  throw new Error('--same-folder-tests needs "testRunner" to be "vitest" or "bun" in the config.');
+  return {
+    ...config,
+    vitest: { ...vitest, configFile: vitestConfigFile, related: false },
+  };
 };
