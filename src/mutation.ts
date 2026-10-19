@@ -145,7 +145,7 @@ export const mutate = async (
   const rawReport =
     runScopes.length === 0
       ? undefined
-      : await runStrykerReport({
+      : runStrykerReport({
           root,
           config,
           mode: command.mode,

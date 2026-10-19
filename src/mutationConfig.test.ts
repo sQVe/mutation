@@ -142,13 +142,23 @@ describe('configWithTestFiles', () => {
 describe('vitestFolderConfigSource', () => {
   it('limits the included tests and escapes glob characters', () => {
     const source = vitestFolderConfigSource(
-      { viteUrl: 'file:///p/vite.js', path: 'config/vite.config.ts' },
+      { viteUrl: 'file:///p/vite.js', path: 'config/vite.config.ts', markerPath: '/t/marker' },
       ['src/[id].test.ts'],
     );
 
     expect(source).toContain('resolve(process.cwd(), "config/vite.config.ts")');
     expect(source).toContain('import { loadConfigFromFile } from "file:///p/vite.js";');
     expect(source).toContain('include: ["src/[[]id].test.ts"]');
+  });
+
+  it('writes the name of an unsupported setting to the marker file and throws', () => {
+    const source = vitestFolderConfigSource(
+      { viteUrl: 'file:///p/vite.js', path: 'vite.config.ts', markerPath: '/t/marker' },
+      [],
+    );
+
+    expect(source).toContain("['projects', 'workspace']");
+    expect(source).toContain('writeFileSync("/t/marker", name)');
   });
 
   it('starts from an empty config when the project has none', () => {

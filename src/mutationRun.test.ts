@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it, onTestFinished } from 'vitest';
 
-import { projectVitestConfig, refuseVitestProjects } from './mutationRun.ts';
+import { projectVitestConfig, viteUrlOf } from './mutationRun.ts';
 
 const projectWith = async (files: string[]) => {
   const directory = await mkdtemp(join(tmpdir(), 'mutation-run-'));
@@ -61,7 +61,7 @@ const pnpmProjectWithViteBehindVitest = async () => {
 
   await writeFile(
     join(store, 'vite/index.mjs'),
-    'export const loadConfigFromFile = async () => ({ config: { test: { projects: [] } } });',
+    'export const loadConfigFromFile = async () => ({ config: {} });',
   );
 
   await symlink(join(store, 'vitest'), join(directory, 'node_modules/vitest'));
@@ -69,12 +69,10 @@ const pnpmProjectWithViteBehindVitest = async () => {
   return directory;
 };
 
-describe('refuseVitestProjects', () => {
-  it('loads the config with the Vite beside the Vitest of the project', async () => {
+describe('viteUrlOf', () => {
+  it('resolves the Vite beside the Vitest of the project', async () => {
     const directory = await pnpmProjectWithViteBehindVitest();
 
-    await expect(refuseVitestProjects(directory, { mutate: [] })).rejects.toThrow(
-      'vitest.config.ts sets "test.projects". --same-folder-tests does not support it.',
-    );
+    expect(viteUrlOf(directory)).toMatch(/\/vite\/index\.mjs$/);
   });
 });

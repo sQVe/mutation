@@ -81,10 +81,14 @@ const commitBase = (repository: string) => {
   git(repository, 'commit', '--quiet', '-m', 'base');
 };
 
+// The test process runs under Vitest, but the command starts without that marker, as in a shell.
+const { VITEST: _marker, ...withoutVitestMarker } = process.env;
+
 const runCommand = (repository: string, args: string[]) => {
   const result = spawnSync(process.execPath, [command, ...args], {
     cwd: repository,
     encoding: 'utf8',
+    env: withoutVitestMarker,
   });
 
   // SAFETY: the command prints one MutationOutcome as JSON on stdout.
@@ -97,12 +101,14 @@ const survivorLines = ({ survivors }: MutationOutcome) =>
   survivors.map(({ file, line, mutator, covered }) => `${file}:${line} ${mutator} ${covered}`);
 
 // The same-folder test imports the source through this alias, so the run fails to load the test
-// unless the generated config extends this one.
+// unless the generated config extends this one. The log line must not reach the report on stdout.
 const vitestConfig = `import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'vitest/config';
 
 import { include } from './settings';
+
+console.log('vitest config loaded');
 
 export default defineConfig({
   resolve: { alias: { '@math': fileURLToPath(new URL('./src/math/math.ts', import.meta.url)) } },
@@ -388,7 +394,7 @@ describe('mutation with Vitest projects', () => {
       const repository = await createProject(
         { ...baseConfig, ...runnerConfig.vitest },
         {
-          'vitest.config.ts': `export default { test: { ${setting}: [] } };\n`,
+          'vitest.config.ts': `export default { test: process.env.VITEST ? { ${setting}: [] } : {} };\n`,
           'src/math/math.ts': sources,
           'src/math/math.test.ts': sameFolderTest('vitest'),
         },

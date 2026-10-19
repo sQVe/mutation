@@ -75,8 +75,10 @@ export const mergedConfig = (
 // The base config is a path relative to the project root. It loads from the working directory of
 // the run, which is Stryker's sandbox, so paths the config builds from `import.meta.url` reach the
 // mutated sources. Vite's loader reads it, as Vitest would, and gets the environment Vitest passes.
+// Vitest projects carry their own `include`, so a loaded config that sets `test.projects` or
+// `test.workspace` is refused: the setting's name goes to the marker file and the load throws.
 export const vitestFolderConfigSource = (
-  base: { viteUrl: string; path: string } | undefined,
+  base: { viteUrl: string; path: string; markerPath: string } | undefined,
   testFiles: readonly string[],
 ): string => {
   const include = JSON.stringify(testFiles.map(escapeGlob));
@@ -85,6 +87,7 @@ export const vitestFolderConfigSource = (
     base === undefined
       ? 'const loadBase = async () => ({});'
       : [
+          "import { writeFileSync } from 'node:fs';",
           "import { resolve } from 'node:path';",
           '',
           `import { loadConfigFromFile } from ${JSON.stringify(base.viteUrl)};`,
@@ -94,6 +97,14 @@ export const vitestFolderConfigSource = (
           '',
           '  if (loaded === null) {',
           `    throw new Error("Vite could not load ${base.path.replaceAll(/["\\]/g, '')}.");`,
+          '  }',
+          '',
+          "  for (const name of ['projects', 'workspace']) {",
+          '    if (loaded.config.test?.[name] !== undefined) {',
+          `      writeFileSync(${JSON.stringify(base.markerPath)}, name);`,
+          '',
+          '      throw new Error("test." + name + " is not supported with --same-folder-tests.");',
+          '    }',
           '  }',
           '',
           '  return loaded.config;',
