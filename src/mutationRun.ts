@@ -7,7 +7,12 @@ import { pathToFileURL } from 'node:url';
 
 import { z } from 'zod';
 
-import { configWithTestFiles, mergedConfig, vitestFolderConfigSource } from './mutationConfig.ts';
+import {
+  assertFolderRunner,
+  configWithTestFiles,
+  mergedConfig,
+  vitestFolderConfigSource,
+} from './mutationConfig.ts';
 import type { StrykerConfig } from './mutationConfig.ts';
 import { mergeStrykerReports, withPlannedTests } from './mutationReport.ts';
 import type { Mutant, MutationMode, StrykerReport } from './mutationReport.ts';
@@ -212,6 +217,8 @@ const noCoverageMutants = (found: InstrumentedMutants): Mutant[] =>
 // Runs Stryker once per folder, with only the unit tests of that folder. A folder with no unit test
 // gets no run: all its mutants have no coverage.
 const runPerFolder = (run: StrykerRun, directory: string) => {
+  assertFolderRunner(run.config);
+
   const reports: StrykerReport[] = [];
   const uncovered: StrykerReport = { files: {} };
 

@@ -14,6 +14,7 @@ import {
   countedMutants,
   fitCap,
   groupByFolder,
+  isIgnoredByPatterns,
   isProductionFile,
   mutateConfigError,
   mutatePatterns,
@@ -22,6 +23,11 @@ import {
   unitTestFiles,
   unreportedFiles,
 } from './mutationScope.ts';
+
+type ResolveInputFileNames = (this: {
+  fs: unknown;
+  ignoreRules: readonly string[];
+}) => Promise<string[]>;
 
 const globs = ['lib/**/*.ts', '!lib/**/*.test.ts', '!lib/**/fixtures/**', '!lib/main.ts'];
 
@@ -41,6 +47,126 @@ describe('isProductionFile', () => {
     { path: 'other/a.ts', expected: false },
   ])('gives $expected for $path', ({ path, expected }) => {
     expect(isProductionFile(path, globs, matchesGlob)).toBe(expected);
+  });
+});
+
+describe('isIgnoredByPatterns', () => {
+  it.each([
+    {
+      name: 'a folder pattern',
+      patterns: ['generated'],
+      path: 'src/generated/a.ts',
+      expected: true,
+    },
+    {
+      name: 'a folder pattern at the root',
+      patterns: ['generated'],
+      path: 'generated/a/b.ts',
+      expected: true,
+    },
+    {
+      name: 'a folder pattern on a longer name',
+      patterns: ['generated'],
+      path: 'src/generatedx/a.ts',
+      expected: false,
+    },
+    { name: 'a file glob', patterns: ['**/*.gen.ts'], path: 'src/a.gen.ts', expected: true },
+    {
+      name: 'a file glob on another file',
+      patterns: ['**/*.gen.ts'],
+      path: 'src/a.ts',
+      expected: false,
+    },
+    {
+      name: 'an anchored pattern',
+      patterns: ['/generated'],
+      path: 'generated/a.ts',
+      expected: true,
+    },
+    {
+      name: 'an anchored pattern below the root',
+      patterns: ['/generated'],
+      path: 'src/generated/a.ts',
+      expected: false,
+    },
+    {
+      name: 'a re-included file',
+      patterns: ['generated', '!generated/keep.ts'],
+      path: 'generated/keep.ts',
+      expected: false,
+    },
+    {
+      name: 'a file glob with a re-included name',
+      patterns: ['**/*.gen.ts', '!keep.gen.ts'],
+      path: 'src/keep.gen.ts',
+      expected: false,
+    },
+    {
+      name: 'another file of that glob',
+      patterns: ['**/*.gen.ts', '!keep.gen.ts'],
+      path: 'src/drop.gen.ts',
+      expected: true,
+    },
+    { name: 'no patterns', patterns: [], path: 'src/a.ts', expected: false },
+    {
+      name: 'a re-include that differs in case',
+      patterns: ['generated', '!Generated/keep.ts'],
+      path: 'generated/keep.ts',
+      expected: false,
+    },
+    {
+      name: 'a re-include with brace alternatives',
+      patterns: ['generated', '!{generated/keep.ts,other/a.ts}'],
+      path: 'generated/keep.ts',
+      expected: false,
+    },
+  ])('gives $expected for $name', ({ patterns, path, expected }) => {
+    expect(isIgnoredByPatterns(path, patterns)).toBe(expected);
+  });
+});
+
+describe('isIgnoredByPatterns against Stryker', () => {
+  const cases = [
+    { patterns: ['generated'], path: 'src/generated/a.ts' },
+    { patterns: ['GENERATED'], path: 'generated/keep.ts' },
+    { patterns: ['**/*.gen.ts', '!keep.gen.ts'], path: 'src/keep.gen.ts' },
+    { patterns: ['/generated'], path: 'src/generated/a.ts' },
+    { patterns: ['generated', '!Generated/keep.ts'], path: 'generated/keep.ts' },
+    { patterns: ['generated', '!{generated/keep.ts,other/a.ts}'], path: 'generated/keep.ts' },
+    { patterns: ['generated', '!generated/*'], path: 'generated/.keep.ts' },
+    { patterns: ['generated', '!generated/keep.ts'], path: 'generated/drop.ts' },
+  ];
+
+  it.each(cases)('agrees for $patterns on $path', async ({ patterns, path }) => {
+    await import('@stryker-mutator/core');
+
+    const reader =
+      await import('../node_modules/@stryker-mutator/core/dist/src/fs/project-reader.js');
+
+    const segments = path.split('/');
+
+    // A directory listing that holds only the entries on the path to the file.
+    const fs = {
+      readdir: (directory: string) => {
+        const depth =
+          directory === process.cwd()
+            ? 0
+            : directory.slice(process.cwd().length + 1).split('/').length;
+
+        return Promise.resolve([
+          { name: segments[depth], isDirectory: () => depth < segments.length - 1 },
+        ]);
+      },
+    };
+
+    // SAFETY: the method is private in the types only; it runs here on a stand-in `this`.
+    const resolve = (
+      reader.ProjectReader.prototype as unknown as Record<string, ResolveInputFileNames>
+    )['resolveInputFileNames'] as ResolveInputFileNames;
+
+    const files = await resolve.call({ fs, ignoreRules: patterns });
+
+    expect(isIgnoredByPatterns(path, patterns)).toBe(!files.includes(join(process.cwd(), path)));
   });
 });
 

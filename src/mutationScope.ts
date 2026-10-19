@@ -1,5 +1,7 @@
 import { posix } from 'node:path';
 
+import { Minimatch } from 'minimatch';
+
 export type GlobMatcher = (path: string, glob: string) => boolean;
 
 export interface Command {
@@ -36,6 +38,51 @@ export const isProductionFile = (
   const excluded = negated.some((glob) => matches(path, glob.slice(1)));
 
   return !excluded && positive.some((glob) => matches(path, glob));
+};
+
+const matchesDirectoryPartially = (entryPath: string, rule: Minimatch) =>
+  rule.match(`/${entryPath}`, true) || rule.match(entryPath, true);
+
+const matchesFile = (entryName: string, entryPath: string, rule: Minimatch) =>
+  rule.match(entryName) || rule.match(entryPath) || rule.match(`/${entryPath}`);
+
+const matchesDirectory = (entryName: string, entryPath: string, rule: Minimatch) => {
+  const asFolder = rule.match(`/${entryPath}/`) || rule.match(`${entryPath}/`);
+  const reIncluded = rule.negate && matchesDirectoryPartially(entryPath, rule);
+
+  return matchesFile(entryName, entryPath, rule) || asFolder || reIncluded;
+};
+
+// Mirrors `resolveInputFileNames` in @stryker-mutator/core's dist/src/fs/project-reader.js, which
+// drops a file when it or a parent folder is ignored. The two must stay in step, so the Minimatch
+// options and the matching functions must match Stryker's. Its always-ignored entries (.git,
+// node_modules, the temp folder) are left out.
+export const isIgnoredByPatterns = (path: string, ignorePatterns: readonly string[]): boolean => {
+  const rules = ignorePatterns.map(
+    (pattern) => new Minimatch(pattern, { dot: true, flipNegate: true, nocase: true }),
+  );
+
+  const segments = path.split('/');
+
+  return segments.some((entryName, index) => {
+    const entryPath = segments.slice(0, index + 1).join('/');
+    const isFolder = index < segments.length - 1;
+    let included = true;
+
+    for (const rule of rules) {
+      if (rule.negate !== included) {
+        const matched = isFolder
+          ? matchesDirectory(entryName, entryPath, rule)
+          : matchesFile(entryName, entryPath, rule);
+
+        if (matched) {
+          included = rule.negate;
+        }
+      }
+    }
+
+    return !included;
+  });
 };
 
 const octalLength = 3;

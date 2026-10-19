@@ -20,6 +20,7 @@ import {
   changedScope,
   countedMutants,
   fitCap,
+  isIgnoredByPatterns,
   isProductionFile,
   mutateConfigError,
   rejectedAuditPaths,
@@ -128,7 +129,9 @@ export const mutate = async (
     readConfig(resolve(root, command.configPath ?? 'stryker.config.json')),
   );
 
-  const isProduction = (path: string) => isProductionFile(path, config.mutate, matchesGlob);
+  const isProduction = (path: string) =>
+    isProductionFile(path, config.mutate, matchesGlob) &&
+    !isIgnoredByPatterns(path, config.ignorePatterns ?? []);
 
   const scopes =
     command.mode === 'changed'
