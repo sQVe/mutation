@@ -337,6 +337,79 @@ describe('mutation of static mutants without ignoreStatic', () => {
   );
 });
 
+// A mutant that flips `enabled` makes the second test skip itself, so fewer tests complete than
+// the run planned. That is no load failure, and the mutant survives.
+const skippingProject = () =>
+  createProject(
+    { ...baseConfig, ...runnerConfig.vitest, ignoreStatic: false, vitest: { related: false } },
+    {
+      'src/feature.ts': 'export const enabled = true;\n',
+      'src/feature.test.ts': `import { expect, it } from 'vitest';
+
+import { enabled } from './feature.ts';
+
+it('smoke', () => expect(1).toBe(1));
+it.skipIf(!enabled)('enabled feature', () => expect(enabled).toBe(true));
+`,
+    },
+  );
+
+// The mutant makes the test file throw while Vitest loads it, so none of its tests run.
+const loadFailureProject = () =>
+  createProject(
+    { ...baseConfig, ...runnerConfig.vitest, ignoreStatic: false, vitest: { related: false } },
+    {
+      'src/limit.ts': 'export const limit = 1 + 2;\n',
+      'src/limit.test.ts': `import { expect, it } from 'vitest';
+
+import { limit } from './limit.ts';
+
+if (limit !== 3) {
+  throw new Error('bad limit');
+}
+
+it('has a limit', () => expect(limit).toBe(3));
+`,
+    },
+  );
+
+describe('mutation of static mutants that complete fewer tests', () => {
+  it.each([
+    {
+      name: 'a mutant that skips a test',
+      project: skippingProject,
+      line: 'src/feature.ts:1 BooleanLiteral',
+    },
+    {
+      name: 'a mutant that breaks a test file load',
+      project: loadFailureProject,
+      line: 'src/limit.ts:1 ArithmeticOperator',
+    },
+  ])(
+    `fails the status for $name (${stryker})`,
+    async ({ project, line }) => {
+      const repository = await project();
+
+      commitBase(repository);
+
+      const { status, report } = runCommand(repository, ['changed', 'HEAD']);
+
+      expect(report.error).toBeUndefined();
+      expect(status).toBe(2);
+      expect(report.status).toBe('survivors');
+      expect(report.survivors).toEqual([]);
+      expect(report.totals).toMatchObject({ mutants: 1, survived: 0, falseSurvived: 1 });
+
+      const lines = report.falseSurvivors.map(
+        (entry) => `${entry.file}:${entry.line} ${entry.mutator}`,
+      );
+
+      expect(lines).toEqual([line]);
+    },
+    strykerTimeout,
+  );
+});
+
 const uncovered = (line: number, column: number, endLine: number, endColumn: number) => ({
   file: 'src/solo/solo.ts',
   line,
@@ -482,6 +555,23 @@ describe('mutation with a refused config', () => {
     expect(report.error).toBe(
       'Unknown mode "fix". Usage: mutation [--same-folder-tests] [--max-mutants <n>] [--config <path>] changed <base> | audit <path>...',
     );
+  });
+
+  it.each([
+    { name: 'a cap', args: ['audit', 'src/math/math.ts', '--max-mutants', '5'] },
+    { name: 'the same-folder switch', args: ['--same-folder-tests', 'audit', 'src/math/math.ts'] },
+  ])('exits 1 on a custom ignorer with $name, before any Stryker run', async ({ args }) => {
+    const repository = await createProject(
+      { ...baseConfig, ignorers: ['custom'] },
+      { 'src/math/math.ts': sources, 'src/math/math.test.ts': sameFolderTest('vitest') },
+    );
+
+    const { status, report } = runCommand(repository, args);
+
+    expect(status).toBe(1);
+    expect(report.status).toBe('error');
+    expect(report.error).toContain('"custom"');
+    expect(report.survivors).toEqual([]);
   });
 
   it('exits 1 when --same-folder-tests meets a runner it cannot limit', async () => {

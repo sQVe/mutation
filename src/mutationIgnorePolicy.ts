@@ -241,5 +241,21 @@ export const enabledIgnorers = <Ignorer>(
   ignorer: Ignorer,
 ): Ignorer[] => (names?.includes(ignorerName) === true ? [ignorer] : []);
 
+// The cap count and the synthetic report instrument with the built-in ignorer only. Stryker has
+// no small public way to load the ignorers a config names, so any other one is refused there.
+export const unsupportedIgnorerError = (
+  names: readonly string[] | undefined,
+): string | undefined => {
+  const unsupported = (names ?? []).filter((name) => name !== ignorerName);
+
+  if (unsupported.length === 0) {
+    return undefined;
+  }
+
+  const listed = unsupported.map((name) => `"${name}"`).join(', ');
+
+  return `--max-mutants and --same-folder-tests support only the "${ignorerName}" ignorer, but the config names ${listed}.`;
+};
+
 export const ignoreReason = (path: BabelPath): string | undefined =>
   isTextNode(path.node) ? reasonOf(path) : undefined;

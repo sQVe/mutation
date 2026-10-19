@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import { configSchema, withSharedDefaults } from './mutationConfig.ts';
 import type { StrykerConfig } from './mutationConfig.ts';
-import { enabledIgnorers } from './mutationIgnorePolicy.ts';
+import { enabledIgnorers, unsupportedIgnorerError } from './mutationIgnorePolicy.ts';
 import { mutationIgnorer } from './mutationIgnorer.ts';
 import { buildMutationReport } from './mutationReport.ts';
 import type { MutationOutcome, StrykerReport } from './mutationReport.ts';
@@ -120,6 +120,15 @@ const readSources = (root: string, report: StrykerReport) =>
     Object.keys(report.files).map((path) => [path, readFileSync(join(root, path), 'utf8')]),
   );
 
+const assertSupportedIgnorers = (command: Command, config: StrykerConfig) => {
+  const preInstruments = command.maxMutants !== undefined || command.sameFolderTests;
+  const problem = unsupportedIgnorerError(config.ignorers);
+
+  if (preInstruments && problem !== undefined) {
+    throw new Error(problem);
+  }
+};
+
 export const mutate = async (
   command: Command,
 ): Promise<{ report: MutationOutcome; exitCode: number }> => {
@@ -129,8 +138,10 @@ export const mutate = async (
     readConfig(resolve(root, command.configPath ?? 'stryker.config.json')),
   );
 
+  assertSupportedIgnorers(command, config);
+
   const isProduction = (path: string) =>
-    isProductionFile(path, config.mutate, matchesGlob) &&
+    isProductionFile(path, config.mutate, matchesGlob, root) &&
     !isIgnoredByPatterns(path, config.ignorePatterns ?? []);
 
   const scopes =

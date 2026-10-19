@@ -254,7 +254,20 @@ describe('buildMutationReport with false survivors', () => {
     expect(report.survivors).toEqual([]);
     expect(report.falseSurvivors).toHaveLength(1);
     expect(report.totals).toMatchObject({ mutants: 1, survived: 0, falseSurvived: 1 });
-    expect(report.status).toBe('pass');
+    expect(report.status).toBe('survivors');
+    expect(exitCode).toBe(2);
+  });
+
+  it('keeps a false survivor from changing the status of an audit', () => {
+    const base = withTestCount(
+      factsOf({ 'src/a.ts': [mutant({ static: true, testsCompleted: 0 })] }),
+      3,
+    );
+
+    const { report, exitCode } = buildMutationReport({ ...base, mode: 'audit' });
+
+    expect(report.falseSurvivors).toHaveLength(1);
+    expect(report.status).toBe('survivors');
     expect(exitCode).toBe(0);
   });
 

@@ -166,7 +166,10 @@ export const configWithTestFiles = (
   assertFolderRunner(config);
 
   if (config.testRunner === 'bun') {
-    return { ...config, bun: { ...config.bun, testFiles } };
+    // The Bun runner prefers a top-level `testFiles` over `bun.testFiles`.
+    const { testFiles: _configured, ...withoutTestFiles } = config;
+
+    return { ...withoutTestFiles, bun: { ...config.bun, testFiles } };
   }
 
   // The generated include names each test file from the root, so another search folder would

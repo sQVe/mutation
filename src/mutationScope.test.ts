@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, matchesGlob } from 'node:path';
+import { join, matchesGlob, posix, win32 } from 'node:path';
 import { promisify } from 'node:util';
 
 import { Minimatch } from 'minimatch';
@@ -20,6 +20,7 @@ import {
   mutatePatterns,
   parseCommand,
   rejectedAuditPaths,
+  rootRelative,
   unitTestFiles,
   unreportedFiles,
 } from './mutationScope.ts';
@@ -29,9 +30,11 @@ type ResolveInputFileNames = (this: {
   ignoreRules: readonly string[];
 }) => Promise<string[]>;
 
+const repositoryRoot = '/work/repo';
+
 const globs = ['lib/**/*.ts', '!lib/**/*.test.ts', '!lib/**/fixtures/**', '!lib/main.ts'];
 
-const isProduction = (path: string) => isProductionFile(path, globs, matchesGlob);
+const isProduction = (path: string) => isProductionFile(path, globs, matchesGlob, repositoryRoot);
 
 const diffOf = (path: string, hunks: string[]) =>
   [`diff --git a/${path} b/${path}`, `--- a/${path}`, `+++ b/${path}`, ...hunks].join('\n');
@@ -46,7 +49,96 @@ describe('isProductionFile', () => {
     { path: 'lib/a.md', expected: false },
     { path: 'other/a.ts', expected: false },
   ])('gives $expected for $path', ({ path, expected }) => {
-    expect(isProductionFile(path, globs, matchesGlob)).toBe(expected);
+    expect(isProductionFile(path, globs, matchesGlob, repositoryRoot)).toBe(expected);
+  });
+});
+
+describe('isProductionFile with a leading ./ in the globs', () => {
+  const dotGlobs = ['./lib/**/*.ts', '!./lib/**/*.test.ts', '!./lib/main.ts'];
+
+  it.each([
+    { path: 'lib/a.ts', expected: true },
+    { path: 'lib/a.test.ts', expected: false },
+    { path: 'lib/main.ts', expected: false },
+    { path: 'other/a.ts', expected: false },
+  ])('gives $expected for $path', ({ path, expected }) => {
+    expect(isProductionFile(path, dotGlobs, matchesGlob, repositoryRoot)).toBe(expected);
+  });
+});
+
+describe('isProductionFile with absolute and parent-relative mutateGlobs', () => {
+  it.each([
+    {
+      name: 'an absolute glob',
+      mutateGlobs: ['/work/repo/lib/**/*.ts'],
+      path: 'lib/a.ts',
+      expected: true,
+    },
+    {
+      name: 'a parent-relative glob',
+      mutateGlobs: ['../repo/lib/**/*.ts'],
+      path: 'lib/a.ts',
+      expected: true,
+    },
+    {
+      name: 'an absolute glob elsewhere',
+      mutateGlobs: ['/work/other/lib/**/*.ts'],
+      path: 'lib/a.ts',
+      expected: false,
+    },
+    {
+      name: 'an absolute exclusion',
+      mutateGlobs: ['lib/**/*.ts', '!/work/repo/lib/**/*.test.ts'],
+      path: 'lib/a.test.ts',
+      expected: false,
+    },
+    {
+      name: 'a parent-relative exclusion',
+      mutateGlobs: ['lib/**/*.ts', '!../repo/lib/main.ts'],
+      path: 'lib/main.ts',
+      expected: false,
+    },
+    {
+      name: 'an exclusion that leaves other files',
+      mutateGlobs: ['lib/**/*.ts', '!/work/repo/lib/**/*.test.ts'],
+      path: 'lib/a.ts',
+      expected: true,
+    },
+  ])('gives $expected for $name', ({ mutateGlobs, path, expected }) => {
+    expect(isProductionFile(path, mutateGlobs, matchesGlob, repositoryRoot)).toBe(expected);
+  });
+});
+
+describe('rootRelative', () => {
+  it.each([
+    { name: 'a drive-qualified absolute glob', target: 'C:/work/repo/src/**/*.ts' },
+    { name: 'a backslash absolute glob', target: 'C:\\work\\repo\\src\\**\\*.ts' },
+    { name: 'a ./ glob', target: './src/**/*.ts' },
+    { name: 'a parent-relative glob', target: '../repo/src/**/*.ts' },
+    { name: 'a glob in another case', target: 'c:/Work/Repo/src/**/*.ts' },
+  ])('gives a root-relative glob with / for $name on Windows', ({ target }) => {
+    expect(rootRelative(win32, 'C:/work/repo', target)).toBe('src/**/*.ts');
+  });
+
+  it('keeps a backslash escape on POSIX', () => {
+    expect(rootRelative(posix, '/work/repo', 'src/\\[a\\].ts')).toBe('src/\\[a\\].ts');
+  });
+});
+
+describe('isProductionFile under a root with glob characters', () => {
+  const bracketRoot = '/work/repo[1]';
+
+  it.each([
+    { name: 'a plain glob', mutateGlobs: ['lib/**/*.ts'], path: 'lib/a.ts', expected: true },
+    { name: 'a ./ glob', mutateGlobs: ['./lib/**/*.ts'], path: 'lib/a.ts', expected: true },
+    {
+      name: 'an exclusion',
+      mutateGlobs: ['lib/**/*.ts', '!lib/**/*.test.ts'],
+      path: 'lib/a.test.ts',
+      expected: false,
+    },
+  ])('gives $expected for $name', ({ mutateGlobs, path, expected }) => {
+    expect(isProductionFile(path, mutateGlobs, matchesGlob, bracketRoot)).toBe(expected);
   });
 });
 

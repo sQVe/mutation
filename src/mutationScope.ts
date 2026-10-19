@@ -1,8 +1,10 @@
-import { posix } from 'node:path';
+import platformPath, { posix } from 'node:path';
 
 import { Minimatch } from 'minimatch';
 
 export type GlobMatcher = (path: string, glob: string) => boolean;
+
+type PathFunctions = Pick<typeof posix, 'relative' | 'resolve' | 'sep'>;
 
 export interface Command {
   mode: 'changed' | 'audit';
@@ -27,17 +29,33 @@ export interface FileScope {
 
 const hunkPattern = /^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 
+// The platform's own functions resolve a drive-qualified root such as `C:/work/repo`. On POSIX a
+// backslash is a glob escape, so only Windows separators turn back into `/`.
+export const rootRelative = (paths: PathFunctions, root: string, target: string): string => {
+  const relative = paths.relative(root, paths.resolve(root, target));
+
+  return paths.sep === '\\' ? relative.replaceAll('\\', '/') : relative;
+};
+
+// Stryker resolves each `mutate` glob and each file name against the root, so `./src/**`,
+// `src/**`, `../repo/src/**`, and an absolute glob into the root are the same glob. Each glob is
+// made relative to the root again before it is matched, so glob characters in the root path, such
+// as the brackets of `repo[1]`, stay out of the pattern.
 // A file is production code when a positive glob matches it and no `!` glob does.
 export const isProductionFile = (
   path: string,
   mutateGlobs: readonly string[],
   matches: GlobMatcher,
+  root: string,
 ): boolean => {
+  const relativePath = rootRelative(platformPath, root, path);
+  const relativeGlob = (glob: string) => rootRelative(platformPath, root, glob);
+  const matchesGlob = (glob: string) => matches(relativePath, relativeGlob(glob));
   const negated = mutateGlobs.filter((glob) => glob.startsWith('!'));
   const positive = mutateGlobs.filter((glob) => !glob.startsWith('!'));
-  const excluded = negated.some((glob) => matches(path, glob.slice(1)));
+  const excluded = negated.some((glob) => matchesGlob(glob.slice(1)));
 
-  return !excluded && positive.some((glob) => matches(path, glob));
+  return !excluded && positive.some(matchesGlob);
 };
 
 const matchesDirectoryPartially = (entryPath: string, rule: Minimatch) =>

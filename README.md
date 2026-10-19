@@ -38,8 +38,12 @@ mutation [--same-folder-tests] audit <path>... [--max-mutants <n>] [--config <pa
   Vitest runner gets a generated config that extends your Vitest config (`vitest.configFile`, or the
   `vitest.config.*` or `vite.config.*` file in the root), sets `test.include` to those files, and
   turns `vitest.related` off. In-source tests (`test.includeSource`) do not run in this mode. The
-  generated patterns are relative to the config's `root`. The switch is off by default.
-- `--max-mutants` sets a cap. There is no cap by default.
+  generated patterns are relative to the config's `root`. In Bun mode the command drops a top-level
+  `testFiles` from your config. The switch is off by default.
+- `--max-mutants` sets a cap. There is no cap by default. `--max-mutants` and `--same-folder-tests`
+  count mutants with the built-in `tauMessageIgnorer` only, because Stryker has no small public way
+  to load other ignorers for the count. When the config's `ignorers` names any other ignorer, the
+  command exits 1 with an error before any Stryker run.
 - `--config` names the Stryker config. The default is `stryker.config.json` in the root.
 
 The command sets `thresholds.break` to `null`, so the report alone decides the exit code. It
@@ -175,7 +179,9 @@ The count includes static mutants, because Stryker finds them only after its fir
   the status is `error`.
 - A false survivor is a static mutant that the Vitest runner reports as `Survived` although fewer
   tests completed than planned. The planned count is the number of tests in `coveredBy` when the
-  report's `config.ignoreStatic` is true. Otherwise it is every test in the report. The mutant made
-  a test file throw while Vitest loaded it, so no test in that file ran. `falseSurvivors` lists them
-  in the shape of `survivors`. They are not in `survivors` or `totals.survived`, and they do not
-  change the status. The Bun runner scores a load failure as `Killed`, so it has none.
+  report's `config.ignoreStatic` is true. Otherwise it is every test in the report. The mutant may
+  have made a test file throw while Vitest loaded it, or it may have made a test skip itself, such
+  as with `it.skipIf`. Stryker's report does not tell the two apart. `falseSurvivors` lists them in
+  the shape of `survivors`. They are not in `survivors` or `totals.survived`, but they change the
+  status like survivors: `survivors`, and exit code 2 in `changed` mode. Check each one by hand. The
+  Bun runner scores a load failure as `Killed`, so it has none.

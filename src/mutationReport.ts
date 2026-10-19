@@ -177,9 +177,11 @@ export const withPlannedTests = (report: StrykerReport): StrykerReport => {
   return report;
 };
 
-// A static mutant that makes a test file throw while Vitest loads it leaves that file's tests
-// unrun, yet Stryker reports it as Survived. The Bun runner scores a load failure as Killed. With
-// `vitest.related` on, a mutant runs only its related tests, so a smaller count proves nothing.
+// A static mutant that completes fewer tests than planned may have made a test file throw while
+// Vitest loaded it, yet Stryker reports it as Survived. It may also have made a test skip itself.
+// Stryker's report cannot tell the two apart, so these mutants are listed apart but fail the status
+// like survivors. The Bun runner scores a load failure as Killed. With `vitest.related` on, a
+// mutant runs only its related tests, so a smaller count proves nothing.
 const falseSurvivorTest = (report: StrykerReport | undefined) => {
   const plannedCount = plannedCountOf(report);
 
@@ -361,7 +363,7 @@ export const buildMutationReport = (
     };
   }
 
-  if (survivors.length > 0) {
+  if (survivors.length + falseSurvivors.length > 0) {
     const { status, exitCode } = survivorsStatus(facts.mode);
 
     return { report: outcome(facts, status, survivors, falseSurvivors, totals), exitCode };
