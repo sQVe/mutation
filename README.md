@@ -62,10 +62,22 @@ The ignorer is also an export, `@sqve/mutation/ignorer`. It skips the string mut
   `ReferenceError`, `EvalError`, or `URIError`, and argument 1 of `AggregateError`;
 - argument 0 of `new X(...)` when `X` ends in `Error` and the call has exactly one argument;
 - an argument after the first of `invariant(...)`;
-- the `error` value of an object literal that also has `ok: false`.
+- the `error` value of an object literal that also has `ok: false`;
+- the value of a property named `message`, `title`, `text`, or `disabledReason` in any object
+  literal;
+- an element of an array that is the value of a property named `lines`.
 
-A template message with an expression is not skipped, because Stryker cannot skip a node without its
-children.
+In each of these places, the ignorer skips:
+
+- a string literal;
+- a template literal whose expressions are only identifiers, member accesses, or calls whose
+  arguments are identifiers, member accesses, or literals;
+- each string branch of a conditional, such as `ready ? 'Ready' : 'Not ready'`. The condition keeps
+  its mutants.
+
+A template with a conditional, logical, binary, unary, or update expression is kept whole, because
+Stryker cannot skip a node without its children. The ignorer reads only syntax, so text that reaches
+one of these places through a variable is not skipped.
 
 ## What your config sets
 

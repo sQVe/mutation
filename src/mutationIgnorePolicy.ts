@@ -10,22 +10,57 @@ interface BabelNode {
   alternate?: BabelNode;
   expressions?: BabelNode[];
   arguments?: BabelNode[];
+  object?: BabelNode;
+  property?: BabelNode;
+  computed?: boolean;
 }
 
 export interface BabelPath {
   node: BabelNode;
   parent: BabelNode;
-  parentPath: { parent: BabelNode } | null;
+  parentPath: BabelPath | null;
   key: string | number | null;
   listKey: string | null;
 }
 
-// The ignore API skips a node with all its descendants, so a template with an expression keeps
-// every mutant.
-const isPlainTemplate = (node: BabelNode) =>
-  node.type === 'TemplateLiteral' && (node.expressions?.length ?? 0) === 0;
+const literalTypes = new Set(['StringLiteral', 'NumericLiteral', 'BooleanLiteral', 'NullLiteral']);
 
-const isTextNode = (node: BabelNode) => node.type === 'StringLiteral' || isPlainTemplate(node);
+const isAccess = (node: BabelNode): boolean => {
+  if (node.type === 'Identifier' || node.type === 'ThisExpression') {
+    return true;
+  }
+
+  const isMember = node.type === 'MemberExpression' || node.type === 'OptionalMemberExpression';
+
+  if (!isMember || node.object === undefined || node.property === undefined) {
+    return false;
+  }
+
+  const hasSimpleProperty = node.computed === true ? isAccess(node.property) : true;
+
+  return isAccess(node.object) && hasSimpleProperty;
+};
+
+const isSimpleArgument = (node: BabelNode) => isAccess(node) || literalTypes.has(node.type);
+
+const isSimpleCall = (node: BabelNode) => {
+  const isCall = node.type === 'CallExpression' || node.type === 'OptionalCallExpression';
+
+  if (!isCall || node.callee === undefined || !isAccess(node.callee)) {
+    return false;
+  }
+
+  return (node.arguments ?? []).every(isSimpleArgument);
+};
+
+const isSimpleExpression = (node: BabelNode) => isAccess(node) || isSimpleCall(node);
+
+// The ignore API skips a node with all its descendants, so a template whose expressions hold logic
+// keeps every mutant.
+const isSkippableTemplate = (node: BabelNode) =>
+  node.type === 'TemplateLiteral' && (node.expressions ?? []).every(isSimpleExpression);
+
+const isTextNode = (node: BabelNode) => node.type === 'StringLiteral' || isSkippableTemplate(node);
 
 const messageIndexOfBuiltinError = new Map([
   ['Error', 0],
@@ -119,7 +154,33 @@ const isFailedResultError = (path: BabelPath) => {
   return isFailedResult(path.parentPath?.parent);
 };
 
-const reasonOf = (path: BabelPath) => {
+const messagePropertyNames = new Set(['message', 'title', 'text', 'disabledReason']);
+
+const isNamedPropertyValue = (path: BabelPath, names: ReadonlySet<string>) => {
+  const { parent } = path;
+
+  if (parent.type !== 'ObjectProperty' || path.key !== 'value' || parent.computed === true) {
+    return false;
+  }
+
+  const name = propertyName(parent);
+
+  return name !== undefined && names.has(name);
+};
+
+const isMessageProperty = (path: BabelPath) => isNamedPropertyValue(path, messagePropertyNames);
+
+const linesPropertyNames = new Set(['lines']);
+
+const isLinesElement = ({ parent, listKey, parentPath }: BabelPath) => {
+  const isArrayElement = parent.type === 'ArrayExpression' && listKey === 'elements';
+
+  return (
+    isArrayElement && parentPath !== null && isNamedPropertyValue(parentPath, linesPropertyNames)
+  );
+};
+
+const reasonOfPosition = (path: BabelPath) => {
   if (isErrorMessage(path)) {
     return 'The text of an error message is not behavior.';
   }
@@ -132,7 +193,32 @@ const reasonOf = (path: BabelPath) => {
     return 'The text of an error result is not behavior.';
   }
 
+  if (isMessageProperty(path) || isLinesElement(path)) {
+    return 'The text of a user-facing message is not behavior.';
+  }
+
   return undefined;
+};
+
+const isBranchKey = (key: BabelPath['key']) => key === 'consequent' || key === 'alternate';
+
+const isConditionalBranch = ({ parent, key }: BabelPath) =>
+  parent.type === 'ConditionalExpression' && isBranchKey(key);
+
+// A string branch of a conditional takes the position of the conditional. The walk skips only the
+// literal, so the condition keeps its mutants.
+const reasonOf = (path: BabelPath): string | undefined => {
+  const reason = reasonOfPosition(path);
+
+  if (reason !== undefined || path.parentPath === null) {
+    return reason;
+  }
+
+  if (path.node.type !== 'StringLiteral' && path.node.type !== 'ConditionalExpression') {
+    return undefined;
+  }
+
+  return isConditionalBranch(path) ? reasonOf(path.parentPath) : undefined;
 };
 
 export const ignorerName = 'tauMessageIgnorer';
