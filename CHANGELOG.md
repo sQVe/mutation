@@ -1,5 +1,15 @@
 # @sqve/mutation
 
+## 0.1.1
+
+### Patch Changes
+
+- [#5](https://github.com/sQVe/mutation/pull/5)
+  [`a95479f`](https://github.com/sQVe/mutation/commit/a95479fbf76d16066847b153c62b6de4825baf41)
+  Thanks [@sQVe](https://github.com/sQVe)! - Correct the README on defaults: the command always adds
+  the ignorer and its plugin, even to `plugins` and `ignorers` lists you set. Only `ignoreStatic`
+  and `timeoutMS` take your value.
+
 ## 0.1.0
 
 ### Minor Changes
