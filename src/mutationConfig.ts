@@ -45,8 +45,9 @@ const ignorerSpecifier = '@sqve/mutation/ignorer';
 const appendUnless = (list: string[], present: readonly string[], item: string) =>
   present.some((name) => list.includes(name)) ? list : [...list, item];
 
-// Applies the defaults every project shares. A value the project sets always wins, and the
-// timeout stays Stryker's default unless the project sets it.
+// Applies the defaults every project shares. The ignorer and its plugin are always added, even to
+// lists the project sets. ignoreStatic defaults to true unless the project sets it, and the timeout
+// stays Stryker's default unless the project sets it.
 export const withSharedDefaults = (config: StrykerConfig): StrykerConfig => ({
   ...config,
   plugins: appendUnless(
