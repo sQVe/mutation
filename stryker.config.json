@@ -1,0 +1,18 @@
+{
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "stryker.vitest.config.ts",
+    "related": true
+  },
+  "coverageAnalysis": "perTest",
+  "mutate": ["src/**/*.ts", "!src/**/*.test.ts"],
+  "tsconfigFile": "stryker-no-tsconfig.json",
+  "checkers": [],
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "concurrency": 4,
+  "timeoutMS": 20000,
+  "fileLogLevel": "info",
+  "ignorePatterns": [".tau", "dist", "coverage", "CHANGELOG.md"],
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": true
+}
