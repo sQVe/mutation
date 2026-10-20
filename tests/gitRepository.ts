@@ -6,7 +6,10 @@ import { promisify } from 'node:util';
 
 type RegisterCleanup = (cleanup: () => Promise<void>) => void;
 
-const runGit = (directory: string, args: string[]) =>
+export const runGit = (
+  directory: string,
+  args: string[],
+): Promise<{ stdout: string; stderr: string }> =>
   promisify(execFile)('git', args, { cwd: directory });
 
 export const createTemporaryRepository = async (
