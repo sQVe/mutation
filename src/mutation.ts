@@ -59,10 +59,11 @@ const changedFiles = (root: string, base: string, isProduction: (path: string) =
 
 const auditFiles = (
   root: string,
+  cwd: string,
   paths: readonly string[],
   isProduction: (path: string) => boolean,
 ) => {
-  const relativePaths = paths.map((path) => relative(root, resolve(path)));
+  const relativePaths = paths.map((path) => relative(root, resolve(cwd, path)));
   const rejected = rejectedAuditPaths(relativePaths, isProduction);
 
   if (rejected.length > 0) {
@@ -131,8 +132,9 @@ const assertSupportedIgnorers = (command: Command, config: StrykerConfig) => {
 
 export const mutate = async (
   command: Command,
+  cwd: string,
 ): Promise<{ report: MutationOutcome; exitCode: number }> => {
-  const root = git(process.cwd(), 'rev-parse', '--show-toplevel').trim();
+  const root = git(cwd, 'rev-parse', '--show-toplevel').trim();
 
   const config = withSharedDefaults(
     readConfig(resolve(root, command.configPath ?? 'stryker.config.json')),
@@ -147,7 +149,7 @@ export const mutate = async (
   const scopes =
     command.mode === 'changed'
       ? changedFiles(root, command.base ?? 'HEAD', isProduction)
-      : auditFiles(root, command.paths, isProduction);
+      : auditFiles(root, cwd, command.paths, isProduction);
 
   const mutantsOf = new Map<string, InstrumentedMutants>();
 
