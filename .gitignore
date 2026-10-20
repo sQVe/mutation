@@ -6,3 +6,7 @@ coverage/
 
 *.tgz
 *.tsbuildinfo
+
+.stryker-tmp/
+reports/
+stryker.log

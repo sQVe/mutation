@@ -1,0 +1,5 @@
+{
+  "mutation": {
+    "argv": ["node", "src/cli.ts"]
+  }
+}
