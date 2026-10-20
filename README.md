@@ -52,7 +52,8 @@ directory.
 
 ## Defaults
 
-The command applies these defaults to your config. A value you set always wins.
+The command applies these defaults to your config. It always adds the ignorer and its plugin, even
+to lists you set. For `ignoreStatic` and `timeoutMS`, a value you set wins.
 
 | Key            | Default                                                                         |
 | -------------- | ------------------------------------------------------------------------------- |
