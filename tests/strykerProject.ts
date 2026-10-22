@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import type { Mutant, StrykerReport } from '../src/mutationReport.ts';
+import type { Mutant, MutantStatus, StrykerReport } from '../src/mutationReport.ts';
 import { createTemporaryRepository, runGit } from './gitRepository.ts';
 
 type RegisterCleanup = (cleanup: () => Promise<void>) => void;
@@ -39,7 +39,7 @@ export interface StrykerProject {
   write: (files: Record<string, string>) => Promise<void>;
 }
 
-export const mutantAt = (line: number, status = 'Survived'): Mutant => ({
+export const mutantAt = (line: number, status: MutantStatus = 'Survived'): Mutant => ({
   mutatorName: 'ArithmeticOperator',
   replacement: '-',
   status,

@@ -10,7 +10,7 @@ export interface MutantLocation {
 export interface Mutant {
   mutatorName: string;
   replacement: string;
-  status: string;
+  status: MutantStatus;
   location: MutantLocation;
   static?: boolean;
   coveredBy?: string[];
@@ -80,6 +80,18 @@ export interface MutationFacts {
   // Set when the run failed before it produced a report.
   error?: string;
 }
+
+export const mutantStatuses = [
+  'Killed',
+  'Survived',
+  'NoCoverage',
+  'Timeout',
+  'CompileError',
+  'RuntimeError',
+  'Ignored',
+] as const;
+
+export type MutantStatus = (typeof mutantStatuses)[number];
 
 const prefixedIds = (mutant: Mutant, prefixed: (id: string) => string): Mutant => {
   const { coveredBy, killedBy, ...rest } = mutant;
@@ -267,7 +279,7 @@ const testsWithNoUniqueKillOf = (
 };
 
 const totalsOf = (mutants: Mutant[], isFalseSurvivor: (mutant: Mutant) => boolean): Totals => {
-  const count = (...statuses: string[]) =>
+  const count = (...statuses: MutantStatus[]) =>
     mutants.filter(({ status }) => statuses.includes(status)).length;
 
   const falseSurvived = mutants.filter(isFalseSurvivor).length;

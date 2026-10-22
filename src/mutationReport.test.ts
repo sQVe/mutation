@@ -443,7 +443,7 @@ describe('buildMutationReport with a failed run', () => {
   });
 });
 
-const killedBy = (...ids: string[]) => ({ status: 'Killed', killedBy: ids });
+const killedBy = (...ids: string[]) => ({ status: 'Killed' as const, killedBy: ids });
 
 const auditFacts = (mutants: Mutant[], tests: { id: string; name: string }[]): MutationFacts => ({
   mode: 'audit',
