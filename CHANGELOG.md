@@ -1,5 +1,14 @@
 # @sqve/mutation
 
+## 0.1.2
+
+### Patch Changes
+
+- [#9](https://github.com/sQVe/mutation/pull/9)
+  [`1c34352`](https://github.com/sQVe/mutation/commit/1c34352f052ad89078ca92aa2b465bfde2d2928c)
+  Thanks [@sQVe](https://github.com/sQVe)! - Fail the run with an error when Stryker reports a
+  mutant status the gate does not know, such as `Pending`, instead of passing.
+
 ## 0.1.1
 
 ### Patch Changes
