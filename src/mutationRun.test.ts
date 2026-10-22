@@ -96,6 +96,9 @@ const runOf = (root: string, overrides: Partial<StrykerRun> = {}): StrykerRun =>
 
 const temporaryDirectoryOf = (call: StrykerCall | undefined) => dirname(call?.configPath ?? '');
 
+const reportWithStatus = (status: string) =>
+  JSON.stringify({ files: { 'src/a.ts': { mutants: [{ ...mutantAt(1), status }] } } });
+
 describe('runStrykerReport', () => {
   it('returns the report that Stryker wrote', async () => {
     const report = reportOf({ 'src/a.ts': [mutantAt(1, 'Killed'), mutantAt(2)] });
@@ -190,6 +193,16 @@ describe('runStrykerReport', () => {
       error: /unusable report/,
     },
     { name: 'no report', response: {}, error: /mutation\.json/ },
+    {
+      name: 'a Pending mutant',
+      response: { rawReport: reportWithStatus('Pending') },
+      error: /unknown mutant status "Pending"/,
+    },
+    {
+      name: 'a mutant with an unlisted status',
+      response: { rawReport: reportWithStatus('Exploded') },
+      error: /unknown mutant status "Exploded"/,
+    },
   ])('fails on $name', async ({ response, error }) => {
     const project = await createStrykerProject(onTestFinished, {}, [response]);
 

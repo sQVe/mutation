@@ -14,7 +14,7 @@ import {
   vitestFolderConfigSource,
 } from './mutationConfig.ts';
 import type { StrykerConfig } from './mutationConfig.ts';
-import { mergeStrykerReports, withPlannedTests } from './mutationReport.ts';
+import { mergeStrykerReports, mutantStatuses, withPlannedTests } from './mutationReport.ts';
 import type { Mutant, MutationMode, StrykerReport } from './mutationReport.ts';
 import { groupByFolder, mutatePatterns, unitTestFiles } from './mutationScope.ts';
 import type { FileScope } from './mutationScope.ts';
@@ -50,7 +50,9 @@ const reportSchema = z.looseObject({
         z.looseObject({
           mutatorName: z.string(),
           replacement: z.string(),
-          status: z.string(),
+          status: z.enum(mutantStatuses, {
+            error: ({ input }) => `unknown mutant status ${JSON.stringify(input)}`,
+          }),
           location: z.object({
             start: z.object({ line: z.number(), column: z.number() }),
             end: z.object({ line: z.number(), column: z.number() }),
