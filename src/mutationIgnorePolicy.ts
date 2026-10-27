@@ -193,6 +193,36 @@ const isLinesElement = ({ parent, listKey, parentPath }: BabelPath) => {
   );
 };
 
+const messageCollectionNames = new Set([
+  'problems',
+  'messages',
+  'errors',
+  'warnings',
+  'issues',
+  'failures',
+]);
+
+const isPushCallee = (callee: BabelNode) =>
+  callee.type === 'MemberExpression' &&
+  callee.computed !== true &&
+  callee.property?.name === 'push';
+
+const isMessageCollection = (node: BabelNode | undefined) =>
+  node?.type === 'Identifier' && messageCollectionNames.has(node.name ?? '');
+
+const isMessageCollectionPush = (node: BabelNode) => {
+  const { callee } = node;
+
+  if (node.type !== 'CallExpression' || callee === undefined) {
+    return false;
+  }
+
+  return isPushCallee(callee) && isMessageCollection(callee.object);
+};
+
+const isMessageCollectionArgument = ({ parent, listKey }: BabelPath) =>
+  listKey === 'arguments' && isMessageCollectionPush(parent);
+
 const reasonOfPosition = (path: BabelPath) => {
   if (isErrorMessage(path)) {
     return 'The text of an error message is not behavior.';
@@ -208,6 +238,10 @@ const reasonOfPosition = (path: BabelPath) => {
 
   if (isMessageProperty(path) || isLinesElement(path)) {
     return 'The text of a user-facing message is not behavior.';
+  }
+
+  if (isMessageCollectionArgument(path)) {
+    return 'The text of a message pushed onto a list of messages is not behavior.';
   }
 
   return undefined;
