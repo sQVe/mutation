@@ -1,5 +1,16 @@
 # @sqve/mutation
 
+## 0.1.3
+
+### Patch Changes
+
+- [#11](https://github.com/sQVe/mutation/pull/11)
+  [`6d93424`](https://github.com/sQVe/mutation/commit/6d9342477d578f8bedee34ff5990c63f1e4969b0)
+  Thanks [@sQVe](https://github.com/sQVe)! - Skip the string mutants of a message pushed onto a
+  `problems`, `messages`, `errors`, `warnings`, `issues`, or `failures` array in
+  `tauMessageIgnorer`. Strings pushed onto other arrays, or onto a member such as `this.problems`,
+  keep their mutants.
+
 ## 0.1.2
 
 ### Patch Changes
