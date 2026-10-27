@@ -155,6 +155,64 @@ describe('mutationIgnorer', () => {
     expect(mutants.some(({ status }) => status !== 'Ignored')).toBe(true);
   });
 
+  it.each([
+    { name: 'a string pushed onto problems', source: "problems.push('x');" },
+    { name: 'a string pushed onto messages', source: "messages.push('x');" },
+    { name: 'a string pushed onto errors', source: "errors.push('x');" },
+    { name: 'a string pushed onto warnings', source: "warnings.push('x');" },
+    { name: 'a string pushed onto issues', source: "issues.push('x');" },
+    { name: 'a string pushed onto failures', source: "failures.push('x');" },
+    { name: 'a template pushed onto problems', source: 'problems.push(`x`);' },
+    {
+      name: 'a template with a call pushed onto problems',
+      source: 'problems.push(`x ${tab.id}`);',
+    },
+    {
+      name: 'a conditional string pushed onto problems',
+      source: "problems.push(ready ? 'Ready' : 'Not ready');",
+    },
+  ])('skips $name', async ({ source }) => {
+    const mutants = await stringMutants(source);
+
+    expect(mutants.length).toBeGreaterThan(0);
+    expect(mutants.every(({ status }) => status === 'Ignored')).toBe(true);
+  });
+
+  it('keeps only the conditional mutants of a pushed conditional string', async () => {
+    const mutants = await instrument("problems.push(ready ? 'Ready' : 'Not ready');");
+
+    const strings = mutants.filter(({ mutatorName }) => mutatorName === 'StringLiteral');
+    const rest = mutants.filter(({ mutatorName }) => mutatorName !== 'StringLiteral');
+
+    expect(strings).toHaveLength(2);
+    expect(strings.every(({ status }) => status === 'Ignored')).toBe(true);
+    expect(rest.length).toBeGreaterThan(0);
+    expect(rest.every(({ status }) => status !== 'Ignored')).toBe(true);
+  });
+
+  it.each([
+    { name: 'a string pushed onto parts', source: "parts.push('x');" },
+    { name: 'a string pushed onto a member', source: "this.problems.push('x');" },
+    { name: 'a string pushed onto a computed member', source: "this['problems'].push('x');" },
+    { name: 'a string pushed onto a computed name', source: "problems[name].push('x');" },
+    { name: 'a string pushed onto a call', source: "problems().push('x');" },
+    { name: 'a string pushed with a computed push', source: "problems[push]('x');" },
+    { name: 'a string passed to unshift', source: "problems.unshift('x');" },
+    { name: 'a string passed to a plain call', source: "report.problems('x');" },
+    { name: 'a string passed to new on a push', source: "new problems.push('x');" },
+  ])('keeps a string mutant in $name', async ({ source }) => {
+    const mutants = await stringMutants(source);
+
+    expect(mutants.some(({ status }) => status !== 'Ignored')).toBe(true);
+  });
+
+  it('keeps every mutant of a template with logic pushed onto problems', async () => {
+    const mutants = await instrument('problems.push(`x ${a ? b : c}`);');
+
+    expect(mutants.length).toBeGreaterThan(0);
+    expect(mutants.every(({ status }) => status !== 'Ignored')).toBe(true);
+  });
+
   it('keeps both strings of a custom error with two arguments', async () => {
     const mutants = await stringMutants("new TaskFormatError('retired', 'x');");
 

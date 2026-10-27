@@ -71,7 +71,10 @@ The ignorer is also an export, `@sqve/mutation/ignorer`. It skips the string mut
 - the `error` value of an object literal that also has `ok: false`;
 - the value of a property named `message`, `title`, `text`, or `disabledReason` in any object
   literal;
-- an element of an array that is the value of a property named `lines`.
+- an element of an array that is the value of a property named `lines`;
+- an argument of `problems.push(...)`, `messages.push(...)`, `errors.push(...)`,
+  `warnings.push(...)`, `issues.push(...)`, or `failures.push(...)`, where the array is a plain
+  identifier.
 
 In each of these places, the ignorer skips:
 

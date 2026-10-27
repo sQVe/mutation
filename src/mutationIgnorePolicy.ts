@@ -193,6 +193,25 @@ const isLinesElement = ({ parent, listKey, parentPath }: BabelPath) => {
   );
 };
 
+const messageCollectionNames = new Set<string | undefined>([
+  'problems',
+  'messages',
+  'errors',
+  'warnings',
+  'issues',
+  'failures',
+]);
+
+// A text node whose parent is a call is one of its arguments, since a string callee has no object.
+// Only an identifier has a name, so `this.problems.push` keeps its mutants.
+const isMessageCollectionArgument = ({ parent }: BabelPath) => {
+  const { callee } = parent;
+  const isPush = callee?.computed !== true && callee?.property?.name === 'push';
+  const isCollection = messageCollectionNames.has(callee?.object?.name);
+
+  return parent.type === 'CallExpression' && isPush && isCollection;
+};
+
 const reasonOfPosition = (path: BabelPath) => {
   if (isErrorMessage(path)) {
     return 'The text of an error message is not behavior.';
@@ -208,6 +227,10 @@ const reasonOfPosition = (path: BabelPath) => {
 
   if (isMessageProperty(path) || isLinesElement(path)) {
     return 'The text of a user-facing message is not behavior.';
+  }
+
+  if (isMessageCollectionArgument(path)) {
+    return 'The text of a message pushed onto a list of messages is not behavior.';
   }
 
   return undefined;
