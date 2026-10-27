@@ -1,6 +1,6 @@
 {
   "name": "@sqve/mutation",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Diff-scoped StrykerJS mutation testing with a JSON report, for Vitest and Bun projects.",
   "keywords": [
     "bun",
