@@ -193,7 +193,7 @@ const isLinesElement = ({ parent, listKey, parentPath }: BabelPath) => {
   );
 };
 
-const messageCollectionNames = new Set([
+const messageCollectionNames = new Set<string | undefined>([
   'problems',
   'messages',
   'errors',
@@ -202,26 +202,15 @@ const messageCollectionNames = new Set([
   'failures',
 ]);
 
-const isPushCallee = (callee: BabelNode) =>
-  callee.type === 'MemberExpression' &&
-  callee.computed !== true &&
-  callee.property?.name === 'push';
+// A text node whose parent is a call is one of its arguments, since a string callee has no object.
+// Only an identifier has a name, so `this.problems.push` keeps its mutants.
+const isMessageCollectionArgument = ({ parent }: BabelPath) => {
+  const { callee } = parent;
+  const isPush = callee?.computed !== true && callee?.property?.name === 'push';
+  const isCollection = messageCollectionNames.has(callee?.object?.name);
 
-const isMessageCollection = (node: BabelNode | undefined) =>
-  node?.type === 'Identifier' && messageCollectionNames.has(node.name ?? '');
-
-const isMessageCollectionPush = (node: BabelNode) => {
-  const { callee } = node;
-
-  if (node.type !== 'CallExpression' || callee === undefined) {
-    return false;
-  }
-
-  return isPushCallee(callee) && isMessageCollection(callee.object);
+  return parent.type === 'CallExpression' && isPush && isCollection;
 };
-
-const isMessageCollectionArgument = ({ parent, listKey }: BabelPath) =>
-  listKey === 'arguments' && isMessageCollectionPush(parent);
 
 const reasonOfPosition = (path: BabelPath) => {
   if (isErrorMessage(path)) {
