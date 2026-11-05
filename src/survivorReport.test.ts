@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
+import type { MutationOutcome } from './mutationReport.ts';
 import { parseSurvivorReport, rankSurvivors } from './survivorReport.ts';
-import type { SharedSurvivor, SharedSurvivorReport } from './survivorReport.ts';
+import type { SharedSurvivor, SharedSurvivorReport, SurvivorEntry } from './survivorReport.ts';
 
 const fixtureReport = () =>
   parseSurvivorReport(
@@ -33,17 +34,21 @@ const reportOf = (fields: Partial<SharedSurvivorReport> = {}): SharedSurvivorRep
   ...fields,
 });
 
-const lowCountsOf = (survivors: SharedSurvivor[]) => {
+const lowCountsOf = (entries: SurvivorEntry[]) => {
   const counts = new Map<string, number>();
 
-  for (const entry of survivors) {
-    counts.set(entry.file, (counts.get(entry.file) ?? 0) + 1);
+  for (const entry of entries) {
+    counts.set(entry.file, (counts.get(entry.file) ?? 0) + entry.survivors.length);
   }
 
   return Object.fromEntries(counts);
 };
 
 describe('parseSurvivorReport', () => {
+  it('accepts the report that @sqve/mutation writes', () => {
+    expectTypeOf<MutationOutcome>().toExtend<SharedSurvivorReport>();
+  });
+
   it('accepts covered null and an optional function', () => {
     const report = parseSurvivorReport(
       JSON.stringify(reportOf({ survivors: [survivor({ covered: null, function: 'isEven' })] })),

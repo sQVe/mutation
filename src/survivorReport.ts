@@ -15,7 +15,7 @@ export interface SurvivorEntry {
 export interface RankedSurvivors {
   high: SurvivorEntry[];
   medium: SurvivorEntry[];
-  low: SharedSurvivor[];
+  low: SurvivorEntry[];
 }
 
 export const mutantGroups = ['controlFlow', 'value', 'literal'] as const;
@@ -157,11 +157,9 @@ export const rankSurvivors = (
     entry.survivors.sort(byPosition);
   }
 
-  const low = ranked.filter((entry) => entry.rank === 'Low').flatMap((entry) => entry.survivors);
-
   return {
     high: ranked.filter((entry) => entry.rank === 'High'),
     medium: ranked.filter((entry) => entry.rank === 'Medium'),
-    low,
+    low: ranked.filter((entry) => entry.rank === 'Low'),
   };
 };

@@ -47,19 +47,10 @@ const annotationOf = (survivor: SharedSurvivor, rank: SurvivorRank): string => {
   return `::warning ${properties.join(',')}::${message}`;
 };
 
-const rankedEntrySurvivors = (entry: SurvivorEntry) =>
-  entry.survivors.map((survivor) => ({ survivor, rank: entry.rank }));
-
-const rankedSurvivors = (
-  ranked: RankedSurvivors,
-): { survivor: SharedSurvivor; rank: SurvivorRank }[] => [
-  ...ranked.high.flatMap(rankedEntrySurvivors),
-  ...ranked.medium.flatMap(rankedEntrySurvivors),
-  ...ranked.low.map((survivor) => ({ survivor, rank: 'Low' as const })),
-];
-
 export const warningAnnotations = (ranked: RankedSurvivors): string[] =>
-  rankedSurvivors(ranked).map(({ survivor, rank }) => annotationOf(survivor, rank));
+  [...ranked.high, ...ranked.medium, ...ranked.low].flatMap((entry) =>
+    entry.survivors.map((survivor) => annotationOf(survivor, entry.rank)),
+  );
 
 const longestBacktickRun = (text: string): number => {
   let longest = 0;
@@ -91,7 +82,7 @@ const entryLocation = (entry: SurvivorEntry): string => {
 };
 
 const survivorBullet = (survivor: SharedSurvivor): string =>
-  `- \`${survivor.mutator}\`: ${snippet(survivor.original)} => ${snippet(survivor.replacement)}`;
+  `- ${snippet(survivor.mutator)}: ${snippet(survivor.original)} => ${snippet(survivor.replacement)}`;
 
 const entryMarkdown = (entry: SurvivorEntry): string[] => [
   `- ${codeSpan(entryLocation(entry))}`,
@@ -104,17 +95,17 @@ const countSurvivors = (entries: SurvivorEntry[]) =>
 const summaryLine = (report: SharedSurvivorReport, ranked: RankedSurvivors): string => {
   const high = countSurvivors(ranked.high);
   const medium = countSurvivors(ranked.medium);
-  const low = ranked.low.length;
+  const low = countSurvivors(ranked.low);
   const total = high + medium + low;
 
   return `${report.totals.mutants} mutants, ${report.totals.killed} killed: ${total} survivors (${high} High, ${medium} Medium, ${low} Low).`;
 };
 
-const lowSection = (survivors: SharedSurvivor[]): string[] => {
+const lowSection = (entries: SurvivorEntry[]): string[] => {
   const counts = new Map<string, number>();
 
-  for (const survivor of survivors) {
-    counts.set(survivor.file, (counts.get(survivor.file) ?? 0) + 1);
+  for (const entry of entries) {
+    counts.set(entry.file, (counts.get(entry.file) ?? 0) + entry.survivors.length);
   }
 
   const files = [...counts.keys()].toSorted();

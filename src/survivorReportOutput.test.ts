@@ -211,6 +211,25 @@ describe('survivorReportMarkdown', () => {
     expect(markdown).toContain('`` `a` `` => `b`');
   });
 
+  it('fences a mutator name that holds a backtick and collapses its line breaks', () => {
+    const report = reportOf({
+      survivors: [
+        survivor({
+          file: 'src/a.ts',
+          line: 1,
+          mutator: 'Odd`Name\n\n# heading',
+          group: 'value',
+          original: 'a',
+          replacement: 'b',
+        }),
+      ],
+    });
+
+    const markdown = survivorReportMarkdown(report, rankSurvivors(report, []));
+
+    expect(markdown).toContain('  - ``Odd`Name # heading``: `a` => `b`\n');
+  });
+
   it('renders an empty snippet as plain text beside a replacement with backticks', () => {
     const report = reportOf({
       survivors: [
