@@ -1,0 +1,75 @@
+name: Mutation report
+description: Rank mutation survivors, annotate the run, and comment on the pull request.
+
+inputs:
+  report:
+    description: Path to the shared mutation report JSON.
+    required: true
+  low-weight-paths:
+    description: Newline-separated globs of low-weight paths, passed as repeated --low-weight.
+    required: false
+    default: ''
+  command:
+    description: How to run the mutation CLI.
+    required: false
+    default: npx --yes @sqve/mutation
+  github-token:
+    description: Token used to post or update the pull request comment.
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Report mutation survivors
+      shell: bash
+      env:
+        REPORT: ${{ inputs.report }}
+        LOW_WEIGHT_PATHS: ${{ inputs.low-weight-paths }}
+        COMMAND: ${{ inputs.command }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        set -euo pipefail
+
+        read -r -a command <<< "$COMMAND"
+        markdown="$RUNNER_TEMP/mutation-report.md"
+        arguments=(report "$REPORT" --markdown "$markdown")
+
+        while IFS= read -r glob; do
+          if [ -n "$glob" ]; then
+            arguments+=(--low-weight "$glob")
+          fi
+        done <<< "$LOW_WEIGHT_PATHS"
+
+        set +e
+        "${command[@]}" "${arguments[@]}"
+        status=$?
+        set -e
+
+        if [ -f "$markdown" ]; then
+          cat "$markdown" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        if [ -n "${PR_NUMBER:-}" ]; then
+          marker='<!-- sqve/mutation report -->'
+          comment_id=''
+
+          if ids="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.type == \"Bot\") | select(.body | startswith(\"$marker\")) | .id" 2>/dev/null)"; then
+            comment_id="$(printf '%s\n' "$ids" | head -n1)"
+          else
+            echo "::warning::Could not list the pull request comments. Posting a new mutation report comment."
+          fi
+
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -F body=@"$markdown" >/dev/null \
+              || echo "::warning::Could not update the mutation report comment."
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -F body=@"$markdown" >/dev/null \
+              || echo "::warning::Could not post the mutation report comment."
+          fi
+        fi
+
+        exit "$status"
