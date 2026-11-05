@@ -130,6 +130,25 @@ describe('warningAnnotations', () => {
 
     expect(locations).toEqual(['src/a.ts:1:4', 'src/a.ts:2:1', 'src/a.ts:2:9', 'src/b.ts:1:5']);
   });
+
+  it('omits end coordinates when the survivor has none', () => {
+    const noEnd: SharedSurvivor = {
+      file: 'src/a.ts',
+      line: 1,
+      column: 1,
+      mutator: 'StringLiteral',
+      group: 'literal',
+      original: 'x',
+      replacement: 'y',
+      covered: true,
+    };
+
+    const ranked = rankSurvivors(reportOf({ survivors: [noEnd] }), []);
+
+    expect(warningAnnotations(ranked)).toEqual([
+      '::warning file=src/a.ts,line=1,col=1,title=Mutation survivor (Medium)::StringLiteral: x => y',
+    ]);
+  });
 });
 
 describe('survivorReportMarkdown', () => {
@@ -169,7 +188,7 @@ describe('survivorReportMarkdown', () => {
       '### Low\n\nNot covered, or a literal mutant in a low-weight path.\n',
     );
 
-    expect(markdown).toContain('- `src/low.ts`: 1 survivor');
+    expect(markdown).toContain('- `src/low.ts`: 1 survivor\n');
     expect(markdown).toContain('3 mutants, 1 killed: 3 survivors (1 High, 1 Medium, 1 Low).');
   });
 
@@ -278,6 +297,74 @@ describe('survivorReportMarkdown', () => {
     const markdown = survivorReportMarkdown(report, rankSurvivors(report, []));
 
     expect(markdown).toContain('Stryker failed');
+  });
+
+  it('pads a snippet that starts or ends with a backtick but does not do both', () => {
+    const startsWithBacktick = reportOf({
+      survivors: [survivor({ original: '`a', replacement: 'b' })],
+    });
+
+    const endsWithBacktick = reportOf({
+      survivors: [survivor({ original: 'a`', replacement: 'b' })],
+    });
+
+    expect(
+      survivorReportMarkdown(startsWithBacktick, rankSurvivors(startsWithBacktick, [])),
+    ).toContain('`` `a `` => `b`');
+
+    expect(survivorReportMarkdown(endsWithBacktick, rankSurvivors(endsWithBacktick, []))).toContain(
+      '`` a` `` => `b`',
+    );
+  });
+
+  it('shows a location without a function when the entry has none', () => {
+    const report = reportOf({
+      survivors: [
+        survivor({
+          file: 'src/a.ts',
+          line: 1,
+          mutator: 'ConditionalExpression',
+          group: 'controlFlow',
+        }),
+      ],
+    });
+
+    const markdown = survivorReportMarkdown(report, rankSurvivors(report, []));
+
+    expect(markdown).toContain('- `src/a.ts:1`');
+    expect(markdown).not.toContain('(undefined)');
+  });
+
+  it('counts more than one low survivor in the same file', () => {
+    const report = reportOf({
+      survivors: [
+        survivor({ file: 'src/low.ts', line: 1, group: 'value', covered: false }),
+        survivor({ file: 'src/low.ts', line: 2, group: 'value', covered: false }),
+      ],
+    });
+
+    const markdown = survivorReportMarkdown(report, rankSurvivors(report, []));
+
+    expect(markdown).toContain('- `src/low.ts`: 2 survivors');
+  });
+
+  it('omits a rank section that has no survivors', () => {
+    const mediumOnly = reportOf({
+      survivors: [survivor({ group: 'value', mutator: 'ObjectLiteral' })],
+    });
+
+    const mediumMarkdown = survivorReportMarkdown(mediumOnly, rankSurvivors(mediumOnly, []));
+
+    expect(mediumMarkdown).not.toContain('### High');
+    expect(mediumMarkdown).not.toContain('### Low');
+
+    const highOnly = reportOf({
+      survivors: [survivor({ group: 'controlFlow', mutator: 'ConditionalExpression' })],
+    });
+
+    const highMarkdown = survivorReportMarkdown(highOnly, rankSurvivors(highOnly, []));
+
+    expect(highMarkdown).not.toContain('### Medium');
   });
 });
 

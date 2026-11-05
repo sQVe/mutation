@@ -72,10 +72,6 @@ const longestBacktickRun = (text: string): number => {
 };
 
 const codeSpan = (text: string): string => {
-  if (text === '') {
-    return '``';
-  }
-
   const fence = '`'.repeat(longestBacktickRun(text) + 1);
   const pad = text.startsWith('`') || text.endsWith('`') ? ' ' : '';
 

@@ -222,4 +222,56 @@ describe('rankSurvivors', () => {
       ranked.medium.find(({ line }) => line === 2)?.survivors.map(({ column }) => column),
     ).toEqual([1, 9]);
   });
+
+  it('raises an entry to High when a later survivor of the line has the higher rank', () => {
+    const ranked = rankSurvivors(
+      reportOf({
+        survivors: [
+          survivor({ file: 'src/a.ts', line: 5, mutator: 'StringLiteral', group: 'literal' }),
+          survivor({
+            file: 'src/a.ts',
+            line: 5,
+            mutator: 'ConditionalExpression',
+            group: 'controlFlow',
+          }),
+        ],
+      }),
+      [],
+    );
+
+    expect(ranked.high.map(({ file, line }) => `${file}:${line}`)).toEqual(['src/a.ts:5']);
+  });
+
+  it('sorts entries by file when a file that sorts first comes later in the report', () => {
+    const ranked = rankSurvivors(
+      reportOf({
+        survivors: [
+          survivor({ file: 'src/b.ts', line: 1, mutator: 'ObjectLiteral', group: 'value' }),
+          survivor({ file: 'src/c.ts', line: 1, mutator: 'ObjectLiteral', group: 'value' }),
+          survivor({ file: 'src/a.ts', line: 1, mutator: 'ObjectLiteral', group: 'value' }),
+        ],
+      }),
+      [],
+    );
+
+    expect(ranked.medium.map(({ file }) => file)).toEqual(['src/a.ts', 'src/b.ts', 'src/c.ts']);
+  });
+
+  it('omits the function property for a survivor without a function', () => {
+    const ranked = rankSurvivors(
+      reportOf({
+        survivors: [
+          survivor({
+            file: 'src/a.ts',
+            line: 1,
+            mutator: 'ConditionalExpression',
+            group: 'controlFlow',
+          }),
+        ],
+      }),
+      [],
+    );
+
+    expect(Object.hasOwn(ranked.high[0] as object, 'function')).toBe(false);
+  });
 });
