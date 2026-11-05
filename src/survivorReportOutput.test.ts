@@ -156,9 +156,19 @@ describe('survivorReportMarkdown', () => {
     const markdown = survivorReportMarkdown(report, rankSurvivors(report, []));
 
     expect(markdown.startsWith('<!-- sqve/mutation report -->\n## Mutation report\n')).toBe(true);
-    expect(markdown).toContain('### High');
-    expect(markdown).toContain('### Medium');
-    expect(markdown).toContain('### Low');
+
+    expect(markdown).toContain(
+      '### High\n\nA branch or condition that no test caught, outside low-weight paths.\n',
+    );
+
+    expect(markdown).toContain(
+      '### Medium\n\nAny other survivor that tests run, or may run, without catching it.\n',
+    );
+
+    expect(markdown).toContain(
+      '### Low\n\nNot covered, or a literal mutant in a low-weight path.\n',
+    );
+
     expect(markdown).toContain('- `src/low.ts`: 1 survivor');
     expect(markdown).toContain('3 mutants, 1 killed: 3 survivors (1 High, 1 Medium, 1 Low).');
   });

@@ -165,11 +165,25 @@ export const survivorReportMarkdown = (
   lines.push(summaryLine(report, ranked), '');
 
   if (ranked.high.length > 0) {
-    lines.push('### High', '', ...ranked.high.flatMap(entryMarkdown), '');
+    lines.push(
+      '### High',
+      '',
+      'A branch or condition that no test caught, outside low-weight paths.',
+      '',
+      ...ranked.high.flatMap(entryMarkdown),
+      '',
+    );
   }
 
   if (ranked.medium.length > 0) {
-    lines.push('### Medium', '', ...ranked.medium.flatMap(entryMarkdown), '');
+    lines.push(
+      '### Medium',
+      '',
+      'Any other survivor that tests run, or may run, without catching it.',
+      '',
+      ...ranked.medium.flatMap(entryMarkdown),
+      '',
+    );
   }
 
   if (ranked.low.length > 0) {
