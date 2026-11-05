@@ -214,17 +214,17 @@ describe('runCli report', () => {
   it('exits 1 and writes Markdown and stderr for a missing file', async () => {
     const directory = reportDirectory();
     const markdownPath = join(directory, 'report.md');
+    const reportPath = join(directory, 'missing.json');
+    const reason = `ENOENT: no such file or directory, open '${reportPath}'`;
 
-    const { exitCode, stderr } = await runReport(
-      'report',
-      join(directory, 'missing.json'),
-      '--markdown',
-      markdownPath,
-    );
+    const { exitCode, stderr } = await runReport('report', reportPath, '--markdown', markdownPath);
 
     expect(exitCode).toBe(1);
-    expect(stderr).not.toBe('');
-    expect(readFileSync(markdownPath, 'utf8')).toContain('Could not read the report:');
+    expect(stderr).toBe(`${reason}\n`);
+
+    expect(readFileSync(markdownPath, 'utf8')).toBe(
+      `<!-- sqve/mutation report -->\n## Mutation report\n\nCould not read the report: ${reason}\n`,
+    );
   });
 
   it('exits 1 for invalid JSON and for an invalid shape', async () => {

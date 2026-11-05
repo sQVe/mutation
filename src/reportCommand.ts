@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
+import { errorMessageOf } from './errorMessage.ts';
 import type { CliProcess } from './mutationCli.ts';
 import { parseSurvivorReport, rankSurvivors } from './survivorReport.ts';
 import type { SharedSurvivorReport } from './survivorReport.ts';
@@ -17,8 +18,6 @@ export interface ReportCommand {
 
 const usageText =
   'Usage: mutation report <report.json> [--low-weight <glob>]... [--markdown <path>]';
-
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 export const parseReportCommand = (argv: readonly string[]): ReportCommand => {
   const [command, ...rest] = argv;
@@ -96,7 +95,7 @@ export const runReportCommand = (cliProcess: CliProcess, argv: readonly string[]
   try {
     command = parseReportCommand(argv);
   } catch (error) {
-    cliProcess.stderr?.write(`${messageOf(error)}\n`);
+    cliProcess.stderr?.write(`${errorMessageOf(error)}\n`);
     cliProcess.exitCode = 1;
 
     return;
@@ -107,7 +106,7 @@ export const runReportCommand = (cliProcess: CliProcess, argv: readonly string[]
   try {
     report = parseSurvivorReport(readFileSync(command.reportPath, 'utf8'));
   } catch (error) {
-    const reason = messageOf(error);
+    const reason = errorMessageOf(error);
 
     writeMarkdown(command.markdownPath, unreadableReportMarkdown(reason));
     cliProcess.stderr?.write(`${reason}\n`);

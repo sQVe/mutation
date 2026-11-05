@@ -1,3 +1,4 @@
+import { errorMessageOf } from './errorMessage.ts';
 import { failedMutationReport } from './mutationReport.ts';
 import type { MutationMode, MutationOutcome } from './mutationReport.ts';
 import { parseCommand } from './mutationScope.ts';
@@ -25,7 +26,7 @@ const outcomeOf = async (
 
     return await mutate(command, cliProcess.cwd());
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessageOf(error);
 
     return { report: failedMutationReport(mode, message), exitCode: 1 };
   }

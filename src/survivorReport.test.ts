@@ -77,8 +77,28 @@ describe('parseSurvivorReport', () => {
     expect(report.survivors.map(({ file }) => file)).toEqual(['src/a.ts']);
   });
 
-  it('rejects invalid JSON', () => {
-    expect(() => parseSurvivorReport('{')).toThrow(/not valid JSON/);
+  it('rejects invalid JSON with the parser message', () => {
+    let parserMessage = '';
+
+    try {
+      JSON.parse('{');
+    } catch (error) {
+      parserMessage = (error as Error).message;
+    }
+
+    expect(() => parseSurvivorReport('{')).toThrow(
+      new Error(`The report is not valid JSON: ${parserMessage}`),
+    );
+
+    let thrown: unknown;
+
+    try {
+      parseSurvivorReport('{');
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect((thrown as Error).cause).toBeInstanceOf(SyntaxError);
   });
 });
 

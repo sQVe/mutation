@@ -2,6 +2,8 @@ import { matchesGlob } from 'node:path';
 
 import { z } from 'zod';
 
+import { errorMessageOf } from './errorMessage.ts';
+
 export interface SurvivorEntry {
   file: string;
   line: number;
@@ -64,15 +66,13 @@ export type SharedSurvivor = z.infer<typeof survivorSchema>;
 export type SharedTotals = z.infer<typeof totalsSchema>;
 export type SharedSurvivorReport = z.infer<typeof reportSchema>;
 
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
-
 export const parseSurvivorReport = (text: string): SharedSurvivorReport => {
   let value: unknown;
 
   try {
     value = JSON.parse(text);
   } catch (error) {
-    throw new Error(`The report is not valid JSON: ${messageOf(error)}`, { cause: error });
+    throw new Error(`The report is not valid JSON: ${errorMessageOf(error)}`, { cause: error });
   }
 
   const parsed = reportSchema.safeParse(value);
