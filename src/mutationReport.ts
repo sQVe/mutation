@@ -2,6 +2,8 @@ export type MutationMode = 'changed' | 'audit';
 
 export type MutationStatus = 'pass' | 'survivors' | 'nothing' | 'error';
 
+export type MutantGroup = 'controlFlow' | 'value' | 'literal';
+
 export interface MutantLocation {
   start: { line: number; column: number };
   end: { line: number; column: number };
@@ -34,9 +36,11 @@ export interface Survivor {
   endLine: number;
   endColumn: number;
   mutator: string;
+  group: MutantGroup;
   original: string;
   replacement: string;
   covered: boolean;
+  function?: string;
 }
 
 export type Kill = Omit<Survivor, 'covered'>;
@@ -80,6 +84,29 @@ export interface MutationFacts {
   // Set when the run failed before it produced a report.
   error?: string;
 }
+
+const controlFlowMutators = new Set([
+  'ConditionalExpression',
+  'EqualityOperator',
+  'LogicalOperator',
+  'BlockStatement',
+  'OptionalChaining',
+]);
+
+const literalMutators = new Set(['StringLiteral', 'BooleanLiteral']);
+
+// The reporter ranks a survivor by why the mutant survived, which only the producer knows.
+export const groupOfMutator = (mutatorName: string): MutantGroup => {
+  if (controlFlowMutators.has(mutatorName)) {
+    return 'controlFlow';
+  }
+
+  if (literalMutators.has(mutatorName)) {
+    return 'literal';
+  }
+
+  return 'value';
+};
 
 export const mutantStatuses = [
   'Killed',
@@ -216,6 +243,7 @@ const survivorOf = (file: string, mutant: Mutant, source: string): Survivor => (
   endLine: mutant.location.end.line,
   endColumn: mutant.location.end.column,
   mutator: mutant.mutatorName,
+  group: groupOfMutator(mutant.mutatorName),
   original: squash(originalText(source, mutant.location)),
   replacement: squash(mutant.replacement),
   covered: mutant.status !== 'NoCoverage',
