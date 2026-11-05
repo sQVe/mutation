@@ -27,7 +27,7 @@ runs:
         REPORT: ${{ inputs.report }}
         LOW_WEIGHT_PATHS: ${{ inputs.low-weight-paths }}
         COMMAND: ${{ inputs.command }}
-        GITHUB_TOKEN: ${{ inputs.github-token }}
+        MUTATION_REPORT_TOKEN: ${{ inputs.github-token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
@@ -44,7 +44,7 @@ runs:
         done <<< "$LOW_WEIGHT_PATHS"
 
         set +e
-        "${command[@]}" "${arguments[@]}"
+        env -u MUTATION_REPORT_TOKEN -u GITHUB_TOKEN -u GH_TOKEN "${command[@]}" "${arguments[@]}"
         status=$?
         set -e
 
@@ -56,7 +56,7 @@ runs:
           marker='<!-- sqve/mutation report -->'
           comment_id=''
 
-          if ids="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+          if ids="$(GH_TOKEN="$MUTATION_REPORT_TOKEN" gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
             --jq ".[] | select(.user.type == \"Bot\") | select(.body | startswith(\"$marker\")) | .id" 2>/dev/null)"; then
             comment_id="$(printf '%s\n' "$ids" | head -n1)"
           else
@@ -64,10 +64,10 @@ runs:
           fi
 
           if [ -n "$comment_id" ]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -F body=@"$markdown" >/dev/null \
+            GH_TOKEN="$MUTATION_REPORT_TOKEN" gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -F body=@"$markdown" >/dev/null \
               || echo "::warning::Could not update the mutation report comment."
           else
-            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -F body=@"$markdown" >/dev/null \
+            GH_TOKEN="$MUTATION_REPORT_TOKEN" gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -F body=@"$markdown" >/dev/null \
               || echo "::warning::Could not post the mutation report comment."
           fi
         fi

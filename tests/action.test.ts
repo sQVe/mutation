@@ -11,6 +11,7 @@ interface ActionPaths {
   summary: string;
   comments: string;
   ghLog: string;
+  ghTokenLog: string;
 }
 
 const actionText = readFileSync(new URL('../action.yml', import.meta.url), 'utf8');
@@ -52,6 +53,7 @@ const { appendFileSync, readFileSync } = require('node:fs');
 const args = process.argv.slice(2);
 
 appendFileSync(process.env.GH_LOG, JSON.stringify(args) + '\\n');
+appendFileSync(process.env.GH_TOKEN_LOG, (process.env.GH_TOKEN ?? '') + '\\n');
 
 if (args.includes('-X')) {
   if (process.env.GH_DENY === '1') {
@@ -100,6 +102,7 @@ const actionFixture = (overrides: Record<string, string> = {}) => {
     summary: join(directory, 'summary.md'),
     comments: join(directory, 'comments.json'),
     ghLog: join(directory, 'gh.log'),
+    ghTokenLog: join(directory, 'gh-token.log'),
   };
 
   const environment: NodeJS.ProcessEnv = {
@@ -110,9 +113,10 @@ const actionFixture = (overrides: Record<string, string> = {}) => {
     RUNNER_TEMP: directory,
     GITHUB_STEP_SUMMARY: paths.summary,
     GITHUB_REPOSITORY: 'owner/project',
-    GITHUB_TOKEN: 'fake-token',
+    MUTATION_REPORT_TOKEN: 'fake-token',
     PR_NUMBER: '5',
     GH_LOG: paths.ghLog,
+    GH_TOKEN_LOG: paths.ghTokenLog,
     GH_COMMENTS: paths.comments,
     GH_DENY: '0',
     LOW_WEIGHT_PATHS: '',
@@ -258,5 +262,45 @@ describe('action.yml run script', () => {
     expect(result.status).toBe(1);
     expect(methodsOf(ghCalls(paths.ghLog))).toEqual(['POST']);
     expect(readFileSync(paths.summary, 'utf8')).toContain('Stryker failed');
+  });
+
+  it('hides the token from the report command and gives it to gh as GH_TOKEN', () => {
+    const { directory, paths, environment } = actionFixture();
+    const commandEnvironment = join(directory, 'command-environment.txt');
+    const fakeCommand = join(directory, 'fake-command');
+
+    writeFileSync(
+      fakeCommand,
+      `#!/usr/bin/env bash\nenv > '${commandEnvironment}'\nexec node '${cliPath}' "$@"\n`,
+    );
+
+    chmodSync(fakeCommand, 0o755);
+
+    writeFileSync(paths.comments, '[]');
+    writeReport(paths.report, 'survivors', [actionSurvivor()]);
+
+    const result = runAction({
+      ...environment,
+      COMMAND: fakeCommand,
+      GITHUB_TOKEN: 'runner-token',
+      GH_TOKEN: 'runner-gh-token',
+    });
+
+    expect(result.status).toBe(0);
+
+    const commandNames = new Set(
+      readFileSync(commandEnvironment, 'utf8')
+        .split('\n')
+        .map((line) => line.slice(0, line.indexOf('='))),
+    );
+
+    expect(commandNames.has('MUTATION_REPORT_TOKEN')).toBe(false);
+    expect(commandNames.has('GITHUB_TOKEN')).toBe(false);
+    expect(commandNames.has('GH_TOKEN')).toBe(false);
+
+    const tokens = readFileSync(paths.ghTokenLog, 'utf8').split('\n').slice(0, -1);
+
+    expect(methodsOf(ghCalls(paths.ghLog))).toEqual(['POST']);
+    expect(tokens).toEqual(['fake-token', 'fake-token']);
   });
 });

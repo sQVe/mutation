@@ -246,8 +246,16 @@ report still writes Markdown that names the reason.
 The repository root has a composite action that runs the report command, appends the Markdown to the
 job summary, and posts or updates one sticky pull request comment. The comment is updated when an
 existing comment starts with the report marker and was made by a Bot; otherwise the action posts a
-new one. A failed comment post only warns, so a fork pull request with a read-only token does not
-fail the run. The action exits with the report command's exit code.
+new one. A failed comment post only warns, so the comment step warns and the run still passes on a
+fork pull request with a read-only token. The action exits with the report command's exit code.
+
+The action passes its token to the `gh api` calls and not to the report command. Set
+`persist-credentials: false` on `actions/checkout`, so the token is not stored in `.git/config` for
+the install and the mutation run. This does not isolate the token from the pull request. The job
+runs the pull request's code before the action, and that code can change the environment of later
+steps, such as through `$GITHUB_ENV`. On a pull request from a branch in the same repository, that
+code can reach the token with `pull-requests: write`. Use this layout only where everyone who can
+push a branch is trusted.
 
 ```yaml
 permissions:
@@ -256,6 +264,8 @@ permissions:
 
 steps:
   - uses: actions/checkout@v4
+    with:
+      persist-credentials: false
   - run: node src/cli.ts changed "${{ github.event.pull_request.base.sha }}" > mutation.json || true
   - uses: sQVe/mutation@main
     with:
