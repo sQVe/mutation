@@ -265,15 +265,24 @@ permissions:
 steps:
   - uses: actions/checkout@v4
     with:
+      fetch-depth: 0
       persist-credentials: false
-  - run: node src/cli.ts changed "${{ github.event.pull_request.base.sha }}" > mutation.json || true
+  # Install the project's dependencies, @sqve/mutation and Stryker included.
+  - run: pnpm install --frozen-lockfile
+  # The report step decides the result, so a run with survivors must not stop the job here.
+  - run: pnpm exec mutation changed "$baseSha" > mutation.json || true
+    env:
+      baseSha: ${{ github.event.pull_request.base.sha }}
   - uses: sQVe/mutation@main
     with:
       report: mutation.json
-      command: node src/cli.ts
+      command: pnpm exec mutation
       low-weight-paths: |
         src/generated/**
 ```
+
+`fetch-depth: 0` fetches the base commit that `changed` compares with. A repository that does not
+install the package, such as a Rust repository, can leave `command` at its default.
 
 Inputs:
 
