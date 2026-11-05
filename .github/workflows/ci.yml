@@ -36,6 +36,9 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -49,6 +52,9 @@ jobs:
       - name: Mutation-test changed lines
         env:
           baseSha: ${{ github.event.pull_request.base.sha }}
-        run: |
-          mapfile -t command < <(jq --raw-output '.mutation.argv[]' .pi/tau.json)
-          "${command[@]}" changed "${baseSha}"
+        # The report step decides the result, so a survivor run must not fail here.
+        run: node src/cli.ts changed "$baseSha" > "$RUNNER_TEMP/mutation.json" || true
+      - uses: ./
+        with:
+          report: ${{ runner.temp }}/mutation.json
+          command: node src/cli.ts
