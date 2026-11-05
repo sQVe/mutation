@@ -276,12 +276,17 @@ describe('survivorReportMarkdown', () => {
     expect(markdown).toContain('- `src/a.ts:10 (isEven)`');
   });
 
-  it('reports a pass with the mutant count', () => {
-    const report = reportOf({ status: 'pass', survivors: [] });
+  it('reports a pass with the mutant and killed counts', () => {
+    const report = reportOf({
+      status: 'pass',
+      survivors: [],
+      totals: { mutants: 3, killed: 1, survived: 0, noCoverage: 0, timeout: 1, invalid: 1 },
+    });
+
     const markdown = survivorReportMarkdown(report, rankSurvivors(report, []));
 
     expect(markdown).toBe(
-      '<!-- sqve/mutation report -->\n## Mutation report\n\nAll 3 mutants killed.\n',
+      '<!-- sqve/mutation report -->\n## Mutation report\n\nNo survivors: 3 mutants, 1 killed.\n',
     );
   });
 

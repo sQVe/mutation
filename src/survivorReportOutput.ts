@@ -136,7 +136,7 @@ const lowSection = (survivors: SharedSurvivor[]): string[] => {
 
 const statusText = (report: SharedSurvivorReport): string => {
   if (report.status === 'pass') {
-    return `All ${report.totals.mutants} mutants killed.`;
+    return `No survivors: ${report.totals.mutants} mutants, ${report.totals.killed} killed.`;
   }
 
   if (report.status === 'nothing') {
