@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildMutationReport,
   failedMutationReport,
+  groupOfMutator,
   mergeStrykerReports,
   withPlannedTests,
 } from './mutationReport.ts';
@@ -32,6 +33,22 @@ const factsOf = (
 const at = (line: number, column: number) => ({
   start: { line, column },
   end: { line, column: column + 1 },
+});
+
+describe('groupOfMutator', () => {
+  it.each([
+    ['ConditionalExpression', 'controlFlow'],
+    ['EqualityOperator', 'controlFlow'],
+    ['LogicalOperator', 'controlFlow'],
+    ['BlockStatement', 'controlFlow'],
+    ['OptionalChaining', 'controlFlow'],
+    ['StringLiteral', 'literal'],
+    ['BooleanLiteral', 'literal'],
+    ['ArithmeticOperator', 'value'],
+    ['AnUnknownMutator', 'value'],
+  ])('maps %s to %s', (mutator, group) => {
+    expect(groupOfMutator(mutator)).toBe(group);
+  });
 });
 
 describe('buildMutationReport', () => {
@@ -158,6 +175,7 @@ describe('buildMutationReport', () => {
         endLine: 2,
         endColumn: 26,
         mutator: 'Regex',
+        group: 'value',
         original: '/a=[^=]+/',
         replacement: '/a=[^=]/',
         covered: true,
@@ -477,6 +495,7 @@ describe('buildMutationReport with tests that have no unique kill', () => {
         endLine: 1,
         endColumn: 2,
         mutator: 'Regex',
+        group: 'value',
         original: '',
         replacement: 'x',
       },
@@ -487,6 +506,7 @@ describe('buildMutationReport with tests that have no unique kill', () => {
         endLine: 2,
         endColumn: 2,
         mutator: 'Regex',
+        group: 'value',
         original: '',
         replacement: 'y',
       },
