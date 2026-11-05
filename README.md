@@ -23,6 +23,7 @@ runs the command.
 ```bash
 mutation [--same-folder-tests] changed <base> [--max-mutants <n>] [--config <path>]
 mutation [--same-folder-tests] audit <path>... [--max-mutants <n>] [--config <path>]
+mutation report <report.json> [--low-weight <glob>]... [--markdown <path>]
 ```
 
 - `changed <base>` mutates the lines that `git diff -U0 <base>` adds against the working tree, and
@@ -45,6 +46,9 @@ mutation [--same-folder-tests] audit <path>... [--max-mutants <n>] [--config <pa
   to load other ignorers for the count. When the config's `ignorers` names any other ignorer, the
   command exits 1 with an error before any Stryker run.
 - `--config` names the Stryker config. The default is `stryker.config.json` in the root.
+- `report <report.json>` reads a report in the shared shape below, prints a GitHub warning
+  annotation per survivor, and writes Markdown for a pull request comment. See
+  [Report command](#report-command).
 
 The command sets `thresholds.break` to `null`, so the report alone decides the exit code. It
 replaces `mutate` with the computed ranges and writes Stryker's JSON report to a temporary
@@ -149,6 +153,7 @@ The count includes static mutants, because Stryker finds them only after its fir
       "endLine": 3,
       "endColumn": 11,
       "mutator": "Regex",
+      "group": "value",
       "original": "/a+/",
       "replacement": "/a/",
       "covered": true
@@ -167,6 +172,33 @@ The count includes static mutants, because Stryker finds them only after its fir
   }
 }
 ```
+
+The `version` stays `1`, and every existing field keeps its name and meaning. Every survivor, in
+`survivors` and `falseSurvivors`, has a required `group`: `controlFlow`, `value`, or `literal`. The
+producer sets it, because only the producer knows the details. `covered` is `true`, `false`, or
+`null` when the producer does not know. A survivor may carry an optional `function`, the enclosing
+function name.
+
+A cargo-mutants survivor maps like this. The adapter writes `covered` as `null`:
+
+```json
+{
+  "file": "crates/tikk-core/src/lib.rs",
+  "line": 6,
+  "column": 16,
+  "endLine": 6,
+  "endColumn": 18,
+  "mutator": "BinaryOperator",
+  "group": "controlFlow",
+  "original": "==",
+  "replacement": "!=",
+  "covered": null,
+  "function": "is_even"
+}
+```
+
+cargo-mutants totals map `missed` to `survived`, `caught` to `killed`, `unviable` to `invalid`, and
+`noCoverage` to `0`.
 
 - In `audit` mode the report also has `testsWithNoUniqueKill`. It lists each test whose killed
   mutants are all killed by another test too, and each test that kills no mutant (`kills` is `[]`).
@@ -189,3 +221,57 @@ The count includes static mutants, because Stryker finds them only after its fir
   the shape of `survivors`. They are not in `survivors` or `totals.survived`, but they change the
   status like survivors: `survivors`, and exit code 2 in `changed` mode. Check each one by hand. The
   Bun runner scores a load failure as `Killed`, so it has none.
+
+## Report command
+
+`mutation report <report.json>` reads a report in the shared shape and ranks its survivors without
+running Stryker. It prints one GitHub `::warning` workflow command per survivor on stdout, ordered
+High, Medium, then Low. With `--markdown <path>` it also writes Markdown for the pull request
+comment and the job summary.
+
+`--low-weight <glob>` marks a path as low weight. Repeat it for several globs. A survivor is Low
+when it is uncovered (`covered` is false), or when it is a `literal` survivor in a low-weight path.
+Otherwise it is High when its `group` is `controlFlow` and the path is not low weight, and Medium
+for every other survivor. A low-weight `controlFlow` survivor is Medium; a low-weight `literal` is
+Low.
+
+Survivors of one file and the same `function`, or else of one line, form one entry. The entry takes
+the highest rank of its survivors. High and Medium list each entry and its survivors. Low folds into
+one count per file. The exit code is 0 for `pass`, `nothing`, and `survivors`, and 1 for a status
+`error`, a missing or unreadable file, an invalid report, or a usage error. An unreadable or invalid
+report still writes Markdown that names the reason.
+
+## GitHub Action
+
+The repository root has a composite action that runs the report command, appends the Markdown to the
+job summary, and posts or updates one sticky pull request comment. The comment is updated when an
+existing comment starts with the report marker and was made by a Bot; otherwise the action posts a
+new one. A failed comment post only warns, so a fork pull request with a read-only token does not
+fail the run. The action exits with the report command's exit code.
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+
+steps:
+  - uses: actions/checkout@v4
+  - run: node src/cli.ts changed "${{ github.event.pull_request.base.sha }}" > mutation.json || true
+  - uses: sQVe/mutation@main
+    with:
+      report: mutation.json
+      command: node src/cli.ts
+      low-weight-paths: |
+        src/generated/**
+```
+
+Inputs:
+
+| Input              | Required | Default                    | Meaning                                                     |
+| ------------------ | -------- | -------------------------- | ----------------------------------------------------------- |
+| `report`           | yes      |                            | Path to the report JSON.                                    |
+| `low-weight-paths` | no       |                            | Newline-separated globs, passed as repeated `--low-weight`. |
+| `command`          | no       | `npx --yes @sqve/mutation` | How to run the CLI.                                         |
+| `github-token`     | no       | `${{ github.token }}`      | Token that posts or updates the comment.                    |
+
+The action needs `pull-requests: write` to post the comment.
