@@ -249,40 +249,77 @@ existing comment starts with the report marker and was made by a Bot; otherwise 
 new one. A failed comment post only warns, so the comment step warns and the run still passes on a
 fork pull request with a read-only token. The action exits with the report command's exit code.
 
-The action passes its token to the `gh api` calls and not to the report command. Set
-`persist-credentials: false` on `actions/checkout`, so the token is not stored in `.git/config` for
-the install and the mutation run. This does not isolate the token from the pull request. The job
-runs the pull request's code before the action, and that code can change the environment of later
-steps, such as through `$GITHUB_ENV`. On a pull request from a branch in the same repository, that
-code can reach the token with `pull-requests: write`. Use this layout only where everyone who can
-push a branch is trusted.
+Run the action in its own job, apart from the job that runs the mutation tool. The action needs
+`pull-requests: write`, and any code that runs on the same runner before it can reach that token,
+for example by changing the environment of later steps through `$GITHUB_ENV`. The mutation job runs
+the pull request's code and its dependencies' install scripts, so it gets a read-only token and
+hands the report over as an artifact. The report job then runs no code from the pull request:
+
+- It checks out nothing from the pull request, so it never loads the pull request's `action.yml`.
+- It pins the action to a commit and the reporter to a published version, and never runs the
+  repository's installed copy.
+- It restores no dependency cache, because a pull request run can save one.
+- It reads the report only as data. The reporter validates it, and the pull request number comes
+  from the event.
 
 ```yaml
-permissions:
-  contents: read
-  pull-requests: write
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      # Install the project's dependencies, @sqve/mutation and Stryker included.
+      - run: pnpm install --frozen-lockfile
+      # The report job decides the result, so a run with survivors must not stop this job.
+      - run: pnpm exec mutation changed "$baseSha" > "$RUNNER_TEMP/mutation.json" || true
+        env:
+          baseSha: ${{ github.event.pull_request.base.sha }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-report
+          path: ${{ runner.temp }}/mutation.json
+          if-no-files-found: error
 
-steps:
-  - uses: actions/checkout@v4
-    with:
-      fetch-depth: 0
-      persist-credentials: false
-  # Install the project's dependencies, @sqve/mutation and Stryker included.
-  - run: pnpm install --frozen-lockfile
-  # The report step decides the result, so a run with survivors must not stop the job here.
-  - run: pnpm exec mutation changed "$baseSha" > mutation.json || true
-    env:
-      baseSha: ${{ github.event.pull_request.base.sha }}
-  - uses: sQVe/mutation@main
-    with:
-      report: mutation.json
-      command: pnpm exec mutation
-      low-weight-paths: |
-        src/generated/**
+  mutation-report:
+    needs: mutation
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          name: mutation-report
+          path: ${{ runner.temp }}/mutation-report
+      - uses: sQVe/mutation@<commit SHA>
+        with:
+          report: ${{ runner.temp }}/mutation-report/mutation.json
+          command: npx --yes @sqve/mutation@<version>
+          low-weight-paths: |
+            src/generated/**
 ```
 
-`fetch-depth: 0` fetches the base commit that `changed` compares with. A repository that does not
-install the package, such as a Rust repository, can leave `command` at its default.
+Pin `sQVe/mutation` to a full commit SHA and `@sqve/mutation` to an exact version, so a new commit
+on this repository's `main` or a new npm release cannot change what runs with the token.
+`fetch-depth: 0` fetches the base commit that `changed` compares with. The action gives its token
+only to the `gh api` calls, not to the report command. A pull request can still change the workflow
+file itself, but only a person who can already push a branch can open one from the same repository,
+and a push can already run any workflow.
 
 Inputs:
 
