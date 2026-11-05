@@ -1,5 +1,16 @@
 # @sqve/mutation
 
+## 0.2.0
+
+### Minor Changes
+
+- [#13](https://github.com/sQVe/mutation/pull/13)
+  [`c32285c`](https://github.com/sQVe/mutation/commit/c32285c362785cda25eb7b75896d1c3492a5fd37)
+  Thanks [@sQVe](https://github.com/sQVe)! - Add a `report` command that reads a shared mutation
+  report, ranks survivors, prints GitHub warning annotations, and writes Markdown for a pull request
+  comment, plus a composite GitHub Action that posts or updates the comment. Each survivor in the
+  JSON report now has a `group`: `controlFlow`, `value`, or `literal`.
+
 ## 0.1.3
 
 ### Patch Changes
