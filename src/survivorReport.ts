@@ -24,8 +24,10 @@ export type SurvivorRank = (typeof survivorRanks)[number];
 
 const coordinate = z.number().int().min(1);
 
+const filePath = z.string().regex(/^[^\r\n]+$/, 'needs a non-empty path without line breaks');
+
 const survivorSchema = z.object({
-  file: z.string(),
+  file: filePath,
   line: coordinate,
   column: coordinate,
   endLine: coordinate.optional(),

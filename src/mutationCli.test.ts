@@ -271,6 +271,23 @@ describe('runCli report', () => {
     },
   );
 
+  it('exits 1 with no annotation for a file path with a line break', async () => {
+    const directory = reportDirectory();
+    const reportPath = join(directory, 'report.json');
+    const markdownPath = join(directory, 'report.md');
+    const file = 'src/a\n\n# injected heading\n\nb.ts';
+
+    writeFileSync(reportPath, JSON.stringify(sharedReport({ survivors: [survivorAt({ file })] })));
+
+    const { stdout, exitCode } = await runReport('report', reportPath, '--markdown', markdownPath);
+    const markdown = readFileSync(markdownPath, 'utf8');
+
+    expect(exitCode).toBe(1);
+    expect(stdout).not.toContain('::warning');
+    expect(markdown).toContain('Could not read the report:');
+    expect(markdown).not.toContain('\n# injected heading');
+  });
+
   it('moves a literal survivor to Low when --low-weight matches its file', async () => {
     const directory = reportDirectory();
     const reportPath = join(directory, 'report.json');

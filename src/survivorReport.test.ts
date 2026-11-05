@@ -60,6 +60,23 @@ describe('parseSurvivorReport', () => {
     ).toThrow(/shared shape/);
   });
 
+  it.each(['\nsrc/a.ts', 'src/a.ts\n', 'src/a.ts\r', ''])(
+    'rejects the survivor file %j',
+    (file) => {
+      expect(() =>
+        parseSurvivorReport(JSON.stringify(reportOf({ survivors: [survivor({ file })] }))),
+      ).toThrow(/needs a non-empty path without line breaks\n.*at survivors\[0\]\.file/);
+    },
+  );
+
+  it('accepts a survivor file path of several characters', () => {
+    const report = parseSurvivorReport(
+      JSON.stringify(reportOf({ survivors: [survivor({ file: 'src/a.ts' })] })),
+    );
+
+    expect(report.survivors.map(({ file }) => file)).toEqual(['src/a.ts']);
+  });
+
   it('rejects invalid JSON', () => {
     expect(() => parseSurvivorReport('{')).toThrow(/not valid JSON/);
   });
