@@ -95,7 +95,6 @@ const controlFlowMutators = new Set([
 
 const literalMutators = new Set(['StringLiteral', 'BooleanLiteral']);
 
-// The reporter ranks a survivor by why the mutant survived, which only the producer knows.
 export const groupOfMutator = (mutatorName: string): MutantGroup => {
   if (controlFlowMutators.has(mutatorName)) {
     return 'controlFlow';

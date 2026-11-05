@@ -119,8 +119,6 @@ const byEntry = (left: SurvivorEntry, right: SurvivorEntry) => {
   return left.line - right.line;
 };
 
-// Survivors of one file and the same function, or else of one line, form one entry. The entry takes
-// the highest rank of its survivors so an entry is never listed as less urgent than one mutant in it.
 export const rankSurvivors = (
   report: SharedSurvivorReport,
   lowWeightGlobs: readonly string[],

@@ -10,8 +10,6 @@ const marker = '<!-- sqve/mutation report -->';
 
 const heading = '## Mutation report';
 
-// GitHub reads a workflow command data field with %, carriage return, and newline escaped. A
-// property value escapes the separators too.
 const escapeData = (text: string) =>
   text.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
 
@@ -73,8 +71,6 @@ const longestBacktickRun = (text: string): number => {
   return longest;
 };
 
-// A code span must use a longer backtick fence than any run inside it, and spaces when the text
-// starts or ends with a backtick.
 const codeSpan = (text: string): string => {
   if (text === '') {
     return '``';
@@ -86,8 +82,6 @@ const codeSpan = (text: string): string => {
   return `${fence}${pad}${text}${pad}${fence}`;
 };
 
-// A snippet is source text from any producer. Collapse its whitespace so a newline or blank line
-// cannot leave the code span or become Markdown structure, and render an empty snippet in words.
 const snippet = (text: string): string => {
   const collapsed = text.replaceAll(/\s+/g, ' ').trim();
 

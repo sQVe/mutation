@@ -90,8 +90,6 @@ const writeMarkdown = (path: string | undefined, text: string): void => {
   }
 };
 
-// Reads one report and writes its annotations and Markdown. A usage, read, or shape error still
-// writes the Markdown when a path was given, so the action can report the failure on the PR.
 export const runReportCommand = (cliProcess: CliProcess, argv: readonly string[]): void => {
   let command: ReportCommand;
 
