@@ -169,6 +169,31 @@ describe('mutate in changed mode', () => {
     expect(report.status).toBe('nothing');
   });
 
+  it('drops the mutants of a file in scope that fall outside the changed lines', async () => {
+    const spread = Array.from(
+      { length: 12 },
+      (_, index) => `export const v${index + 1} = (input: number) => input + ${index + 1};\n`,
+    ).join('');
+
+    const project = await strykerProjectWith({ 'src/math.ts': spread }, [
+      {
+        report: reportOf({ 'src/math.ts': [mutantAt(1), mutantAt(3), mutantAt(9), mutantAt(12)] }),
+      },
+    ]);
+
+    await writeFile(
+      join(project.root, 'src/math.ts'),
+      spread.replace('input + 3;', 'input + 30;').replace('input + 9;', 'input + 90;'),
+    );
+
+    const { report } = await mutate(changed(), project.root);
+
+    expect(report.survivors.map(({ file, line }) => `${file}:${line}`)).toEqual([
+      'src/math.ts:3',
+      'src/math.ts:9',
+    ]);
+  });
+
   it('finds the repository and its config from a folder inside it', async () => {
     const project = await strykerProjectWith({}, [
       { report: reportOf({ 'src/math.ts': [mutantAt(6)] }) },
