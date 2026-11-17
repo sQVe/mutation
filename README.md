@@ -77,10 +77,10 @@ to lists you set. For every other key, a value you set wins.
 | `incrementalFile`      | `.tau/stryker-incremental.json`.                                                |
 | `coverageAnalysis`     | `perTest`.                                                                      |
 
-The `concurrency` default starts a quarter of the CPU count as test runners. On a 32 core machine
-that is 8 runners, against the 31 of Stryker's own `cpuCount - 1` default. A `concurrency` value in
-your config wins, so a CI job can set its own value in the config it uses, such as the one
-`--config` names.
+The `concurrency` default gives Stryker a quarter of the CPU count to work with. On a 32 core
+machine that is 8 workers, against the 31 of Stryker's own `cpuCount - 1` default. Stryker splits
+the number between its test runners and its checkers. A `concurrency` value in your config wins, so
+a CI job can set its own value in the config it uses, such as the one `--config` names.
 
 The temp directory and the incremental file live under `.tau/`, so ignore that folder in Git.
 
@@ -120,7 +120,6 @@ Your Stryker config holds your own policy:
 - `testRunner` and the runner's `plugins` entry, such as `@stryker-mutator/vitest-runner` or
   `@hughescr/stryker-bun-runner`. With pnpm, list the runner in `plugins`, because Stryker's
   `@stryker-mutator/*` pattern does not find it there.
-- The runner's own timeout, when the shared `timeoutMS` and `timeoutFactor` do not fit.
 - Left-out modules, as `!` globs in `mutate` and `ignorePatterns`.
 - Any other Stryker option, such as `checkers` and `mutator`.
 
