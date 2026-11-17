@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  configSchema,
   configWithTestFiles,
   ignorerPluginPath,
   mergedConfig,
@@ -8,6 +9,49 @@ import {
   withSharedDefaults,
 } from './mutationConfig.ts';
 import type { StrykerConfig } from './mutationConfig.ts';
+
+const acceptedConfigValues = [
+  { key: 'concurrency', value: 3 },
+  { key: 'concurrency', value: '50%' },
+  { key: 'timeoutMS', value: 20_000 },
+  { key: 'timeoutFactor', value: 4 },
+  { key: 'dryRunTimeoutMinutes', value: 20 },
+  { key: 'fileLogLevel', value: 'trace' },
+  { key: 'tempDirName', value: '.stryker-tmp' },
+  { key: 'cleanTempDir', value: true },
+  { key: 'cleanTempDir', value: false },
+  { key: 'cleanTempDir', value: 'always' },
+  { key: 'incremental', value: true },
+  { key: 'incrementalFile', value: 'i.json' },
+  { key: 'coverageAnalysis', value: 'perTest' },
+] as const satisfies readonly { key: keyof StrykerConfig; value: unknown }[];
+
+const refusedConfigValues = [
+  { key: 'concurrency', value: true },
+  { key: 'timeoutMS', value: '20000' },
+  { key: 'timeoutFactor', value: '4' },
+  { key: 'dryRunTimeoutMinutes', value: null },
+  { key: 'fileLogLevel', value: 3 },
+  { key: 'tempDirName', value: 3 },
+  { key: 'cleanTempDir', value: 'sometimes' },
+  { key: 'incremental', value: 'yes' },
+  { key: 'incrementalFile', value: 3 },
+  { key: 'coverageAnalysis', value: 3 },
+] as const satisfies readonly { key: keyof StrykerConfig; value: unknown }[];
+
+describe('configSchema', () => {
+  it.each(acceptedConfigValues)('accepts $key = $value', ({ key, value }) => {
+    expect(configSchema.safeParse({ mutate: [], [key]: value }).success).toBe(true);
+  });
+
+  it.each(refusedConfigValues)('refuses $key = $value', ({ key, value }) => {
+    expect(configSchema.safeParse({ mutate: [], [key]: value }).success).toBe(false);
+  });
+
+  it('keeps cleanTempDir always when the project sets it', () => {
+    expect(withSharedDefaults({ mutate: [], cleanTempDir: 'always' }).cleanTempDir).toBe('always');
+  });
+});
 
 describe('mergedConfig', () => {
   it('turns the break threshold off and keeps the other thresholds', () => {

@@ -33,7 +33,7 @@ export const configSchema = z.looseObject({
   dryRunTimeoutMinutes: z.number().optional(),
   fileLogLevel: z.string().optional(),
   tempDirName: z.string().optional(),
-  cleanTempDir: z.boolean().optional(),
+  cleanTempDir: z.union([z.boolean(), z.literal('always')]).optional(),
   incremental: z.boolean().optional(),
   incrementalFile: z.string().optional(),
   coverageAnalysis: z.string().optional(),
