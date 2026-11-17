@@ -15,4 +15,6 @@ it, and a value the project sets still wins.
   must not reuse another run's result.
 - `coverageAnalysis: 'perTest'`.
 
-The temp directory and the incremental file live under `.tau/`, so ignore that folder in Git.
+The temp directory and the incremental file live under `.tau/`, so ignore that folder in Git. The
+report holds only the mutants of the current diff, because Stryker's incremental file can add a
+result from an earlier run.

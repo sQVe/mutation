@@ -129,7 +129,9 @@ describe('mutate in changed mode', () => {
   });
 
   it('diffs against HEAD by default and against the base when given', async () => {
-    const project = await strykerProjectWith();
+    const project = await strykerProjectWith({}, [
+      { report: reportOf({ 'src/math.ts': [mutantAt(6)] }) },
+    ]);
 
     await editMath(project.root);
     await commitAll(project.root, 'edit');
@@ -168,7 +170,9 @@ describe('mutate in changed mode', () => {
   });
 
   it('finds the repository and its config from a folder inside it', async () => {
-    const project = await strykerProjectWith();
+    const project = await strykerProjectWith({}, [
+      { report: reportOf({ 'src/math.ts': [mutantAt(6)] }) },
+    ]);
 
     await editMath(project.root);
 
