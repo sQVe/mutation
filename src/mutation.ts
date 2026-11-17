@@ -116,6 +116,30 @@ const withScopePaths = (report: StrykerReport, scopes: readonly FileScope[]): St
   return { ...report, files };
 };
 
+const isSelectedLine = ({ ranges }: FileScope, line: number): boolean =>
+  ranges === undefined || ranges.some(({ start, end }) => line >= start && line <= end);
+
+// Stryker's incremental file holds the mutants of earlier runs and adds the ones the current
+// mutate patterns exclude, so the report is cut back to the selected scopes.
+const withScopeMutants = (report: StrykerReport, scopes: readonly FileScope[]): StrykerReport => {
+  const files: StrykerReport['files'] = {};
+
+  for (const scope of scopes) {
+    const file = report.files[scope.path];
+
+    if (file === undefined) {
+      continue;
+    }
+
+    files[scope.path] = {
+      ...file,
+      mutants: file.mutants.filter(({ location }) => isSelectedLine(scope, location.start.line)),
+    };
+  }
+
+  return { ...report, files };
+};
+
 const readSources = (root: string, report: StrykerReport) =>
   Object.fromEntries(
     Object.keys(report.files).map((path) => [path, readFileSync(join(root, path), 'utf8')]),
@@ -178,7 +202,10 @@ export const mutate = async (
           mutantsOf,
         });
 
-  const stryker = rawReport === undefined ? undefined : withScopePaths(rawReport, runScopes);
+  const stryker =
+    rawReport === undefined
+      ? undefined
+      : withScopeMutants(withScopePaths(rawReport, runScopes), runScopes);
 
   const sources = stryker === undefined ? {} : readSources(root, stryker);
 

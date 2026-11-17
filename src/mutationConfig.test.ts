@@ -1,12 +1,57 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  configSchema,
   configWithTestFiles,
   ignorerPluginPath,
   mergedConfig,
   vitestFolderConfigSource,
   withSharedDefaults,
 } from './mutationConfig.ts';
+import type { StrykerConfig } from './mutationConfig.ts';
+
+const acceptedConfigValues = [
+  { key: 'concurrency', value: 3 },
+  { key: 'concurrency', value: '50%' },
+  { key: 'timeoutMS', value: 20_000 },
+  { key: 'timeoutFactor', value: 4 },
+  { key: 'dryRunTimeoutMinutes', value: 20 },
+  { key: 'fileLogLevel', value: 'trace' },
+  { key: 'tempDirName', value: '.stryker-tmp' },
+  { key: 'cleanTempDir', value: true },
+  { key: 'cleanTempDir', value: false },
+  { key: 'cleanTempDir', value: 'always' },
+  { key: 'incremental', value: true },
+  { key: 'incrementalFile', value: 'i.json' },
+  { key: 'coverageAnalysis', value: 'perTest' },
+] as const satisfies readonly { key: keyof StrykerConfig; value: unknown }[];
+
+const refusedConfigValues = [
+  { key: 'concurrency', value: true },
+  { key: 'timeoutMS', value: '20000' },
+  { key: 'timeoutFactor', value: '4' },
+  { key: 'dryRunTimeoutMinutes', value: null },
+  { key: 'fileLogLevel', value: 3 },
+  { key: 'tempDirName', value: 3 },
+  { key: 'cleanTempDir', value: 'sometimes' },
+  { key: 'incremental', value: 'yes' },
+  { key: 'incrementalFile', value: 3 },
+  { key: 'coverageAnalysis', value: 3 },
+] as const satisfies readonly { key: keyof StrykerConfig; value: unknown }[];
+
+describe('configSchema', () => {
+  it.each(acceptedConfigValues)('accepts $key = $value', ({ key, value }) => {
+    expect(configSchema.safeParse({ mutate: [], [key]: value }).success).toBe(true);
+  });
+
+  it.each(refusedConfigValues)('refuses $key = $value', ({ key, value }) => {
+    expect(configSchema.safeParse({ mutate: [], [key]: value }).success).toBe(false);
+  });
+
+  it('keeps cleanTempDir always when the project sets it', () => {
+    expect(withSharedDefaults({ mutate: [], cleanTempDir: 'always' }).cleanTempDir).toBe('always');
+  });
+});
 
 describe('mergedConfig', () => {
   it('turns the break threshold off and keeps the other thresholds', () => {
@@ -54,6 +99,22 @@ describe('mergedConfig', () => {
   });
 });
 
+const sharedRunDefaults = [
+  { key: 'timeoutMS', value: 20_000, projectValue: 5 },
+  { key: 'timeoutFactor', value: 4, projectValue: 2 },
+  { key: 'dryRunTimeoutMinutes', value: 20, projectValue: 1 },
+  { key: 'fileLogLevel', value: 'off', projectValue: 'trace' },
+  { key: 'tempDirName', value: '.tau/stryker-tmp', projectValue: '.stryker-tmp' },
+  { key: 'cleanTempDir', value: true, projectValue: false },
+  { key: 'incremental', value: true, projectValue: false },
+  { key: 'incrementalFile', value: '.tau/stryker-incremental.json', projectValue: 'i.json' },
+  { key: 'coverageAnalysis', value: 'perTest', projectValue: 'all' },
+] as const satisfies readonly {
+  key: keyof StrykerConfig;
+  value: unknown;
+  projectValue: unknown;
+}[];
+
 describe('withSharedDefaults', () => {
   it('adds the ignorer plugin after the Stryker plugins by default', () => {
     expect(withSharedDefaults({ mutate: [] }).plugins).toEqual([
@@ -100,11 +161,20 @@ describe('withSharedDefaults', () => {
     expect(withSharedDefaults({ mutate: [], ignoreStatic: false }).ignoreStatic).toBe(false);
   });
 
-  it('leaves the timeout to Stryker unless the project sets it', () => {
-    const config = { mutate: [] };
+  it.each(sharedRunDefaults)('defaults $key to $value', ({ key, value }) => {
+    expect(withSharedDefaults({ mutate: [] })[key]).toBe(value);
+  });
 
-    expect(withSharedDefaults(config)).not.toHaveProperty('timeoutMS');
-    expect(withSharedDefaults({ ...config, timeoutMS: 99 })).toHaveProperty('timeoutMS', 99);
+  it.each(sharedRunDefaults)('keeps the project value of $key', ({ key, projectValue }) => {
+    expect(withSharedDefaults({ mutate: [], [key]: projectValue })[key]).toBe(projectValue);
+  });
+
+  it('caps concurrency at 25% of the CPU count when the project does not set it', () => {
+    expect(withSharedDefaults({ mutate: [] }).concurrency).toBe('25%');
+  });
+
+  it.each([3, '50%'])('keeps the concurrency of %s when the project sets it', (concurrency) => {
+    expect(withSharedDefaults({ mutate: [], concurrency }).concurrency).toBe(concurrency);
   });
 
   it('points the ignorer plugin at a file next to the module', () => {
@@ -147,6 +217,12 @@ describe('configWithTestFiles', () => {
     expect(configWithTestFiles(config, ['src/a.test.ts'], 'v.mjs').vitest).not.toHaveProperty(
       'dir',
     );
+  });
+
+  it.each(['vitest', 'bun'])('turns incremental off for the %s folder runs', (testRunner) => {
+    const config = { mutate: [], testRunner, incremental: true };
+
+    expect(configWithTestFiles(config, ['src/a.test.ts'], 'v.mjs').incremental).toBe(false);
   });
 
   it.each([undefined, 'command'])('refuses the %s runner', (testRunner) => {

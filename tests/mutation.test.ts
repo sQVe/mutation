@@ -81,6 +81,11 @@ const commitBase = (repository: string) => {
   git(repository, 'commit', '--quiet', '-m', 'base');
 };
 
+const commitAll = (repository: string) => {
+  git(repository, 'add', '.');
+  git(repository, 'commit', '--quiet', '-m', 'base');
+};
+
 // The test process runs under Vitest, but the command starts without that marker, as in a shell.
 const { VITEST: _marker, ...withoutVitestMarker } = process.env;
 
@@ -220,11 +225,6 @@ describe('mutation changed on one tracked file', () => {
       },
     );
 
-  const commitAll = (repository: string) => {
-    git(repository, 'add', '.');
-    git(repository, 'commit', '--quiet', '-m', 'base');
-  };
-
   it(
     `reports the whole survivor record of a changed line. ${stryker}`,
     async () => {
@@ -280,6 +280,59 @@ describe('mutation changed on one tracked file', () => {
       expect(status).toBe(2);
       expect(report.totals).toMatchObject({ mutants: 2, killed: 0, survived: 2, noCoverage: 0 });
       expect(report.unmutated).toEqual([]);
+    },
+    strykerTimeout,
+  );
+});
+
+describe('mutation with the incremental file of an earlier run', () => {
+  const increment = 'export const increment = (input: number) => input + 1;\n';
+
+  const weakIncrementTest = `import { expect, it } from 'vitest';
+
+import { increment } from './value.ts';
+
+it('returns a number', () => expect(typeof increment(1)).toBe('number'));
+`;
+
+  it(
+    `reports only the mutants of the current diff. ${stryker}`,
+    async () => {
+      const repository = await createProject(
+        { ...baseConfig, ...runnerConfig.vitest },
+        {
+          'src/a/value.ts': increment,
+          'src/a/value.test.ts': weakIncrementTest,
+          'src/b/value.ts': increment,
+          'src/b/value.test.ts': weakIncrementTest,
+        },
+      );
+
+      const changedIncrement = 'export const increment = (input: number) => input + 2;\n';
+
+      commitAll(repository);
+
+      await writeFile(join(repository, 'src/a/value.ts'), changedIncrement);
+      await writeFile(join(repository, 'src/b/value.ts'), changedIncrement);
+
+      const first = runCommand(repository, ['changed', 'HEAD']);
+
+      expect(survivorLines(first.report)).toEqual([
+        'src/a/value.ts:1 ArithmeticOperator true',
+        'src/b/value.ts:1 ArithmeticOperator true',
+      ]);
+
+      commitAll(repository);
+
+      await writeFile(
+        join(repository, 'src/b/value.ts'),
+        'export const increment = (input: number) => input + 3;\n',
+      );
+
+      const second = runCommand(repository, ['changed', 'HEAD']);
+
+      expect(second.report.error).toBeUndefined();
+      expect(survivorLines(second.report)).toEqual(['src/b/value.ts:1 ArithmeticOperator true']);
     },
     strykerTimeout,
   );
@@ -532,6 +585,7 @@ describe('mutation with Vitest projects', () => {
         `vitest.config.ts sets "test.${setting}". --same-folder-tests does not support it.`,
       );
     },
+    strykerTimeout,
   );
 });
 

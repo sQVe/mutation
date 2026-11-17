@@ -40,7 +40,9 @@ mutation report <report.json> [--low-weight <glob>]... [--markdown <path>]
   `vitest.config.*` or `vite.config.*` file in the root), sets `test.include` to those files, and
   turns `vitest.related` off. In-source tests (`test.includeSource`) do not run in this mode. The
   generated patterns are relative to the config's `root`. In Bun mode the command drops a top-level
-  `testFiles` from your config. The switch is off by default.
+  `testFiles` from your config. Each run also turns `incremental` off, because the folder runs of
+  one invocation share the incremental file and a later run would reuse an earlier run's result. The
+  switch is off by default.
 - `--max-mutants` sets a cap. There is no cap by default. `--max-mutants` and `--same-folder-tests`
   count mutants with the built-in `tauMessageIgnorer` only, because Stryker has no small public way
   to load other ignorers for the count. When the config's `ignorers` names any other ignorer, the
@@ -57,14 +59,30 @@ directory.
 ## Defaults
 
 The command applies these defaults to your config. It always adds the ignorer and its plugin, even
-to lists you set. For `ignoreStatic` and `timeoutMS`, a value you set wins.
+to lists you set. For every other key, a value you set wins.
 
-| Key            | Default                                                                         |
-| -------------- | ------------------------------------------------------------------------------- |
-| `plugins`      | Your list (Stryker's `@stryker-mutator/*` if unset) plus the package's ignorer. |
-| `ignorers`     | Your list plus `tauMessageIgnorer`.                                             |
-| `ignoreStatic` | `true`.                                                                         |
-| `timeoutMS`    | Stryker's own default. The command does not set it.                             |
+| Key                    | Default                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| `plugins`              | Your list (Stryker's `@stryker-mutator/*` if unset) plus the package's ignorer. |
+| `ignorers`             | Your list plus `tauMessageIgnorer`.                                             |
+| `ignoreStatic`         | `true`.                                                                         |
+| `concurrency`          | `25%` of the CPU count.                                                         |
+| `timeoutMS`            | `20000`.                                                                        |
+| `timeoutFactor`        | `4`.                                                                            |
+| `dryRunTimeoutMinutes` | `20`.                                                                           |
+| `fileLogLevel`         | `'off'`.                                                                        |
+| `tempDirName`          | `.tau/stryker-tmp`.                                                             |
+| `cleanTempDir`         | `true`.                                                                         |
+| `incremental`          | `true`.                                                                         |
+| `incrementalFile`      | `.tau/stryker-incremental.json`.                                                |
+| `coverageAnalysis`     | `perTest`.                                                                      |
+
+The `concurrency` default gives Stryker a quarter of the CPU count to work with. On a 32 core
+machine that is 8 workers, against the 31 of Stryker's own `cpuCount - 1` default. Stryker splits
+the number between its test runners and its checkers. A `concurrency` value in your config wins, so
+a CI job can set its own value in the config it uses, such as the one `--config` names.
+
+The temp directory and the incremental file live under `.tau/`, so ignore that folder in Git.
 
 The ignorer is also an export, `@sqve/mutation/ignorer`. It skips the string mutants of:
 
@@ -102,9 +120,8 @@ Your Stryker config holds your own policy:
 - `testRunner` and the runner's `plugins` entry, such as `@stryker-mutator/vitest-runner` or
   `@hughescr/stryker-bun-runner`. With pnpm, list the runner in `plugins`, because Stryker's
   `@stryker-mutator/*` pattern does not find it there.
-- Timeouts, such as `timeoutMS` and the runner's own timeout.
 - Left-out modules, as `!` globs in `mutate` and `ignorePatterns`.
-- Any other Stryker option, such as `coverageAnalysis` and `concurrency`.
+- Any other Stryker option, such as `checkers` and `mutator`.
 
 A minimal config for Vitest:
 
@@ -112,7 +129,6 @@ A minimal config for Vitest:
 {
   "testRunner": "vitest",
   "plugins": ["@stryker-mutator/vitest-runner"],
-  "coverageAnalysis": "perTest",
   "mutate": ["src/**/*.ts", "!src/**/*.test.ts"],
   "checkers": []
 }
