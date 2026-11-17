@@ -28,6 +28,15 @@ export const configSchema = z.looseObject({
   ignoreStatic: z.boolean().optional(),
   testRunner: z.string().optional(),
   concurrency: z.union([z.number(), z.string()]).optional(),
+  timeoutMS: z.number().optional(),
+  timeoutFactor: z.number().optional(),
+  dryRunTimeoutMinutes: z.number().optional(),
+  fileLogLevel: z.string().optional(),
+  tempDirName: z.string().optional(),
+  cleanTempDir: z.boolean().optional(),
+  incremental: z.boolean().optional(),
+  incrementalFile: z.string().optional(),
+  coverageAnalysis: z.string().optional(),
   bun: z.record(z.string(), z.unknown()).optional(),
   vitest: z.record(z.string(), z.unknown()).optional(),
 });
@@ -46,16 +55,31 @@ const ignorerSpecifier = '@sqve/mutation/ignorer';
 const appendUnless = (list: string[], present: readonly string[], item: string) =>
   present.some((name) => list.includes(name)) ? list : [...list, item];
 
+const defaultTimeoutMS = 20_000;
+const defaultTimeoutFactor = 4;
+const defaultDryRunTimeoutMinutes = 20;
+
+const projectValueOr = <T>(projectValue: T | undefined, fallback: T): T => projectValue ?? fallback;
+
 export const withSharedDefaults = (config: StrykerConfig): StrykerConfig => ({
   ...config,
   plugins: appendUnless(
-    config.plugins ?? strykerDefaultPlugins,
+    projectValueOr(config.plugins, strykerDefaultPlugins),
     [ignorerPluginPath, ignorerSpecifier],
     ignorerPluginPath,
   ),
-  ignorers: appendUnless(config.ignorers ?? [], [ignorerName], ignorerName),
-  ignoreStatic: config.ignoreStatic ?? true,
-  concurrency: config.concurrency ?? '25%',
+  ignorers: appendUnless(projectValueOr(config.ignorers, []), [ignorerName], ignorerName),
+  ignoreStatic: projectValueOr(config.ignoreStatic, true),
+  concurrency: projectValueOr(config.concurrency, '25%'),
+  timeoutMS: projectValueOr(config.timeoutMS, defaultTimeoutMS),
+  timeoutFactor: projectValueOr(config.timeoutFactor, defaultTimeoutFactor),
+  dryRunTimeoutMinutes: projectValueOr(config.dryRunTimeoutMinutes, defaultDryRunTimeoutMinutes),
+  fileLogLevel: projectValueOr(config.fileLogLevel, 'off'),
+  tempDirName: projectValueOr(config.tempDirName, '.tau/stryker-tmp'),
+  cleanTempDir: projectValueOr(config.cleanTempDir, true),
+  incremental: projectValueOr(config.incremental, true),
+  incrementalFile: projectValueOr(config.incrementalFile, '.tau/stryker-incremental.json'),
+  coverageAnalysis: projectValueOr(config.coverageAnalysis, 'perTest'),
 });
 
 // The config Stryker runs: the project config with the shared defaults and the computed scope. Only
@@ -157,7 +181,9 @@ export const assertFolderRunner = (config: StrykerConfig): void => {
 };
 
 // Limits a run to the given test files. The Vitest runner has no such option, so it gets a
-// generated config file; the Bun runner takes the files directly.
+// generated config file; the Bun runner takes the files directly. The folder runs of one invocation
+// share the incremental file, so a later run would reuse an earlier run's result and report fewer
+// completed tests than it planned.
 export const configWithTestFiles = (
   config: StrykerConfig,
   testFiles: readonly string[],
@@ -165,19 +191,21 @@ export const configWithTestFiles = (
 ): StrykerConfig => {
   assertFolderRunner(config);
 
-  if (config.testRunner === 'bun') {
-    // The Bun runner prefers a top-level `testFiles` over `bun.testFiles`.
-    const { testFiles: _configured, ...withoutTestFiles } = config;
+  const folderRun: StrykerConfig = { ...config, incremental: false };
 
-    return { ...withoutTestFiles, bun: { ...config.bun, testFiles } };
+  if (folderRun.testRunner === 'bun') {
+    // The Bun runner prefers a top-level `testFiles` over `bun.testFiles`.
+    const { testFiles: _configured, ...withoutTestFiles } = folderRun;
+
+    return { ...withoutTestFiles, bun: { ...folderRun.bun, testFiles } };
   }
 
   // The generated include names each test file from the root, so another search folder would
   // select files that do not exist.
-  const { dir: _searchFolder, ...vitest } = config.vitest ?? {};
+  const { dir: _searchFolder, ...vitest } = folderRun.vitest ?? {};
 
   return {
-    ...config,
+    ...folderRun,
     vitest: { ...vitest, configFile: vitestConfigFile, related: false },
   };
 };
