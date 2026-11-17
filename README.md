@@ -57,14 +57,20 @@ directory.
 ## Defaults
 
 The command applies these defaults to your config. It always adds the ignorer and its plugin, even
-to lists you set. For `ignoreStatic` and `timeoutMS`, a value you set wins.
+to lists you set. For `ignoreStatic`, `concurrency`, and `timeoutMS`, a value you set wins.
 
 | Key            | Default                                                                         |
 | -------------- | ------------------------------------------------------------------------------- |
 | `plugins`      | Your list (Stryker's `@stryker-mutator/*` if unset) plus the package's ignorer. |
 | `ignorers`     | Your list plus `tauMessageIgnorer`.                                             |
 | `ignoreStatic` | `true`.                                                                         |
+| `concurrency`  | `25%` of the CPU count.                                                         |
 | `timeoutMS`    | Stryker's own default. The command does not set it.                             |
+
+The `concurrency` default starts a quarter of the CPU count as test runners. On a 32 core machine
+that is 8 runners, against the 31 of Stryker's own `cpuCount - 1` default. A `concurrency` value in
+your config wins, so a CI job can set its own value in the config it uses, such as the one
+`--config` names.
 
 The ignorer is also an export, `@sqve/mutation/ignorer`. It skips the string mutants of:
 
@@ -104,7 +110,7 @@ Your Stryker config holds your own policy:
   `@stryker-mutator/*` pattern does not find it there.
 - Timeouts, such as `timeoutMS` and the runner's own timeout.
 - Left-out modules, as `!` globs in `mutate` and `ignorePatterns`.
-- Any other Stryker option, such as `coverageAnalysis` and `concurrency`.
+- Any other Stryker option, such as `coverageAnalysis` and `checkers`.
 
 A minimal config for Vitest:
 

@@ -27,6 +27,7 @@ export const configSchema = z.looseObject({
   plugins: z.array(z.string()).optional(),
   ignoreStatic: z.boolean().optional(),
   testRunner: z.string().optional(),
+  concurrency: z.union([z.number(), z.string()]).optional(),
   bun: z.record(z.string(), z.unknown()).optional(),
   vitest: z.record(z.string(), z.unknown()).optional(),
 });
@@ -46,8 +47,8 @@ const appendUnless = (list: string[], present: readonly string[], item: string) 
   present.some((name) => list.includes(name)) ? list : [...list, item];
 
 // Applies the defaults every project shares. The ignorer and its plugin are always added, even to
-// lists the project sets. ignoreStatic defaults to true unless the project sets it, and the timeout
-// stays Stryker's default unless the project sets it.
+// lists the project sets. ignoreStatic defaults to true and concurrency to 25% of the CPU count,
+// unless the project sets them. The timeout stays Stryker's default unless the project sets it.
 export const withSharedDefaults = (config: StrykerConfig): StrykerConfig => ({
   ...config,
   plugins: appendUnless(
@@ -57,6 +58,7 @@ export const withSharedDefaults = (config: StrykerConfig): StrykerConfig => ({
   ),
   ignorers: appendUnless(config.ignorers ?? [], [ignorerName], ignorerName),
   ignoreStatic: config.ignoreStatic ?? true,
+  concurrency: config.concurrency ?? '25%',
 });
 
 // The config Stryker runs: the project config with the shared defaults and the computed scope. Only

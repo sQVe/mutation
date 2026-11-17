@@ -107,6 +107,14 @@ describe('withSharedDefaults', () => {
     expect(withSharedDefaults({ ...config, timeoutMS: 99 })).toHaveProperty('timeoutMS', 99);
   });
 
+  it('caps concurrency at 25% of the CPU count when the project does not set it', () => {
+    expect(withSharedDefaults({ mutate: [] }).concurrency).toBe('25%');
+  });
+
+  it.each([3, '50%'])('keeps the concurrency of %s when the project sets it', (concurrency) => {
+    expect(withSharedDefaults({ mutate: [], concurrency }).concurrency).toBe(concurrency);
+  });
+
   it('points the ignorer plugin at a file next to the module', () => {
     expect(ignorerPluginPath).toMatch(/\/mutationIgnorer\.(ts|js)$/);
   });
