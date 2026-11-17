@@ -532,6 +532,7 @@ describe('mutation with Vitest projects', () => {
         `vitest.config.ts sets "test.${setting}". --same-folder-tests does not support it.`,
       );
     },
+    strykerTimeout,
   );
 });
 

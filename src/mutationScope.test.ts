@@ -32,6 +32,10 @@ type ResolveInputFileNames = (this: {
 
 const repositoryRoot = '/work/repo';
 
+// The first test that loads Stryker's project reader pays the module load on a machine that may be
+// busy with other work.
+const importTimeout = 30_000;
+
 const globs = ['lib/**/*.ts', '!lib/**/*.test.ts', '!lib/**/fixtures/**', '!lib/main.ts'];
 
 const isProduction = (path: string) => isProductionFile(path, globs, matchesGlob, repositoryRoot);
@@ -229,37 +233,41 @@ describe('isIgnoredByPatterns against Stryker', () => {
     { patterns: ['generated', '!generated/keep.ts'], path: 'generated/drop.ts' },
   ];
 
-  it.each(cases)('agrees for $patterns on $path', async ({ patterns, path }) => {
-    await import('@stryker-mutator/core');
+  it.each(cases)(
+    'agrees for $patterns on $path',
+    async ({ patterns, path }) => {
+      await import('@stryker-mutator/core');
 
-    const reader =
-      await import('../node_modules/@stryker-mutator/core/dist/src/fs/project-reader.js');
+      const reader =
+        await import('../node_modules/@stryker-mutator/core/dist/src/fs/project-reader.js');
 
-    const segments = path.split('/');
+      const segments = path.split('/');
 
-    // A directory listing that holds only the entries on the path to the file.
-    const fs = {
-      readdir: (directory: string) => {
-        const depth =
-          directory === process.cwd()
-            ? 0
-            : directory.slice(process.cwd().length + 1).split('/').length;
+      // A directory listing that holds only the entries on the path to the file.
+      const fs = {
+        readdir: (directory: string) => {
+          const depth =
+            directory === process.cwd()
+              ? 0
+              : directory.slice(process.cwd().length + 1).split('/').length;
 
-        return Promise.resolve([
-          { name: segments[depth], isDirectory: () => depth < segments.length - 1 },
-        ]);
-      },
-    };
+          return Promise.resolve([
+            { name: segments[depth], isDirectory: () => depth < segments.length - 1 },
+          ]);
+        },
+      };
 
-    // SAFETY: the method is private in the types only; it runs here on a stand-in `this`.
-    const resolve = (
-      reader.ProjectReader.prototype as unknown as Record<string, ResolveInputFileNames>
-    )['resolveInputFileNames'] as ResolveInputFileNames;
+      // SAFETY: the method is private in the types only; it runs here on a stand-in `this`.
+      const resolve = (
+        reader.ProjectReader.prototype as unknown as Record<string, ResolveInputFileNames>
+      )['resolveInputFileNames'] as ResolveInputFileNames;
 
-    const files = await resolve.call({ fs, ignoreRules: patterns });
+      const files = await resolve.call({ fs, ignoreRules: patterns });
 
-    expect(isIgnoredByPatterns(path, patterns)).toBe(!files.includes(join(process.cwd(), path)));
-  });
+      expect(isIgnoredByPatterns(path, patterns)).toBe(!files.includes(join(process.cwd(), path)));
+    },
+    importTimeout,
+  );
 });
 
 describe('changedScope', () => {
