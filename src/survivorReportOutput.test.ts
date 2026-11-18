@@ -55,11 +55,9 @@ describe('warningAnnotations', () => {
       [],
     );
 
-    expect(warningAnnotations(ranked).map((line) => /\((\w+)\)/.exec(line)?.[1])).toEqual([
-      'High',
-      'Medium',
-      'Low',
-    ]);
+    const ranks = warningAnnotations(ranked).map((line) => /\((\w+)\)/.exec(line)?.[1]);
+
+    expect(ranks).toEqual(['High', 'Medium', 'Low']);
   });
 
   it('escapes data and property values for the workflow command', () => {

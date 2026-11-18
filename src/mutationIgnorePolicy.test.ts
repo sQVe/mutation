@@ -12,7 +12,9 @@ describe('enabledIgnorers', () => {
   ])('returns the ignorer only when enabled: $enabled, $name', ({ ignorers, enabled }) => {
     const ignorer = { shouldIgnore: () => undefined };
 
-    expect(enabledIgnorers(ignorers, ignorer)).toEqual(enabled ? [ignorer] : []);
+    const expected = enabled ? [ignorer] : [];
+
+    expect(enabledIgnorers(ignorers, ignorer)).toEqual(expected);
   });
 });
 

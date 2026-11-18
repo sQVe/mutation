@@ -1,7 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
-  configSchema,
   configWithTestFiles,
   ignorerPluginPath,
   mergedConfig,
@@ -24,6 +23,8 @@ const acceptedConfigValues = [
   { key: 'incremental', value: true },
   { key: 'incrementalFile', value: 'i.json' },
   { key: 'coverageAnalysis', value: 'perTest' },
+  { key: 'mutator', value: { excludedMutations: ['StringLiteral'], plugins: ['plugin'] } },
+  { key: 'mutator', value: { plugins: null } },
 ] as const satisfies readonly { key: keyof StrykerConfig; value: unknown }[];
 
 const refusedConfigValues = [
@@ -37,14 +38,30 @@ const refusedConfigValues = [
   { key: 'incremental', value: 'yes' },
   { key: 'incrementalFile', value: 3 },
   { key: 'coverageAnalysis', value: 3 },
+  { key: 'mutator', value: { excludedMutations: 'StringLiteral' } },
+  { key: 'mutator', value: { excludedMutations: [3] } },
+  { key: 'mutator', value: { plugins: 'plugin' } },
 ] as const satisfies readonly { key: keyof StrykerConfig; value: unknown }[];
 
+// The schema is built when the module loads, so each test loads the module again to run that code.
+const freshConfigSchema = async () => {
+  vi.resetModules();
+
+  const { configSchema } = await import('./mutationConfig.ts');
+
+  return configSchema;
+};
+
 describe('configSchema', () => {
-  it.each(acceptedConfigValues)('accepts $key = $value', ({ key, value }) => {
+  it.each(acceptedConfigValues)('accepts $key = $value', async ({ key, value }) => {
+    const configSchema = await freshConfigSchema();
+
     expect(configSchema.safeParse({ mutate: [], [key]: value }).success).toBe(true);
   });
 
-  it.each(refusedConfigValues)('refuses $key = $value', ({ key, value }) => {
+  it.each(refusedConfigValues)('refuses $key = $value', async ({ key, value }) => {
+    const configSchema = await freshConfigSchema();
+
     expect(configSchema.safeParse({ mutate: [], [key]: value }).success).toBe(false);
   });
 

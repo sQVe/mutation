@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { describe, expect, it, onTestFinished } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { createStrykerProject, mutantAt, reportOf } from '../tests/strykerProject.ts';
 import type { StrykerCall, StrykerResponse } from '../tests/strykerProject.ts';
@@ -98,6 +98,12 @@ const temporaryDirectoryOf = (call: StrykerCall | undefined) => dirname(call?.co
 
 const reportWithStatus = (status: string) =>
   JSON.stringify({ files: { 'src/a.ts': { mutants: [{ ...mutantAt(1), status }] } } });
+
+const reportWithConfig = (config: Record<string, unknown>) =>
+  JSON.stringify({ config, files: { 'src/a.ts': { mutants: [mutantAt(1)] } } });
+
+const reportWithTestFiles = (testFiles: unknown) =>
+  JSON.stringify({ files: { 'src/a.ts': { mutants: [mutantAt(1)] } }, testFiles });
 
 describe('runStrykerReport', () => {
   it('returns the report that Stryker wrote', async () => {
@@ -203,10 +209,43 @@ describe('runStrykerReport', () => {
       response: { rawReport: reportWithStatus('Exploded') },
       error: /unknown mutant status "Exploded"/,
     },
+    {
+      name: 'a config with an ignoreStatic that is not a boolean',
+      response: { rawReport: reportWithConfig({ ignoreStatic: 'yes' }) },
+      error: /unusable report/,
+    },
+    {
+      name: 'a config with a testRunner that is not a string',
+      response: { rawReport: reportWithConfig({ testRunner: 3 }) },
+      error: /unusable report/,
+    },
+    {
+      name: 'a config with a vitest setting that is not an object',
+      response: { rawReport: reportWithConfig({ vitest: 'on' }) },
+      error: /unusable report/,
+    },
+    {
+      name: 'a config with a vitest.related that is not a boolean',
+      response: { rawReport: reportWithConfig({ vitest: { related: 'yes' } }) },
+      error: /unusable report/,
+    },
+    {
+      name: 'a testFiles entry whose tests are not a list',
+      response: { rawReport: reportWithTestFiles({ 'a.test.ts': { tests: 'all' } }) },
+      error: /unusable report/,
+    },
+    {
+      name: 'a testFiles test with no name',
+      response: { rawReport: reportWithTestFiles({ 'a.test.ts': { tests: [{ id: 'a' }] } }) },
+      error: /unusable report/,
+    },
   ])('fails on $name', async ({ response, error }) => {
+    vi.resetModules();
+
+    const { runStrykerReport: freshRunStrykerReport } = await import('./mutationRun.ts');
     const project = await createStrykerProject(onTestFinished, {}, [response]);
 
-    expect(() => runStrykerReport(runOf(project.root))).toThrow(error);
+    expect(() => freshRunStrykerReport(runOf(project.root))).toThrow(error);
   });
 
   it('removes its temporary files after a run', async () => {

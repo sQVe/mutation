@@ -1,4 +1,7 @@
 {
+  "fullCheck": {
+    "argv": ["pnpm", "run", "check"]
+  },
   "mutation": {
     "argv": ["node", "src/cli.ts"]
   }

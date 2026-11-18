@@ -15,30 +15,30 @@ export interface MergedConfig extends StrykerConfig {
 
 export const configSchema = z.looseObject({
   mutate: z.array(z.string()),
-  thresholds: z.record(z.string(), z.unknown()).optional(),
-  mutator: z
-    .looseObject({
-      excludedMutations: z.array(z.string()).optional(),
-      plugins: z.array(z.unknown()).nullable().optional(),
-    })
-    .optional(),
-  ignorePatterns: z.array(z.string()).optional(),
-  ignorers: z.array(z.string()).optional(),
-  plugins: z.array(z.string()).optional(),
-  ignoreStatic: z.boolean().optional(),
-  testRunner: z.string().optional(),
-  concurrency: z.union([z.number(), z.string()]).optional(),
-  timeoutMS: z.number().optional(),
-  timeoutFactor: z.number().optional(),
-  dryRunTimeoutMinutes: z.number().optional(),
-  fileLogLevel: z.string().optional(),
-  tempDirName: z.string().optional(),
-  cleanTempDir: z.union([z.boolean(), z.literal('always')]).optional(),
-  incremental: z.boolean().optional(),
-  incrementalFile: z.string().optional(),
-  coverageAnalysis: z.string().optional(),
-  bun: z.record(z.string(), z.unknown()).optional(),
-  vitest: z.record(z.string(), z.unknown()).optional(),
+  thresholds: z.optional(z.record(z.string(), z.unknown())),
+  mutator: z.optional(
+    z.looseObject({
+      excludedMutations: z.optional(z.array(z.string())),
+      plugins: z.optional(z.nullable(z.array(z.unknown()))),
+    }),
+  ),
+  ignorePatterns: z.optional(z.array(z.string())),
+  ignorers: z.optional(z.array(z.string())),
+  plugins: z.optional(z.array(z.string())),
+  ignoreStatic: z.optional(z.boolean()),
+  testRunner: z.optional(z.string()),
+  concurrency: z.optional(z.union([z.number(), z.string()])),
+  timeoutMS: z.optional(z.number()),
+  timeoutFactor: z.optional(z.number()),
+  dryRunTimeoutMinutes: z.optional(z.number()),
+  fileLogLevel: z.optional(z.string()),
+  tempDirName: z.optional(z.string()),
+  cleanTempDir: z.optional(z.union([z.boolean(), z.literal('always')])),
+  incremental: z.optional(z.boolean()),
+  incrementalFile: z.optional(z.string()),
+  coverageAnalysis: z.optional(z.string()),
+  bun: z.optional(z.record(z.string(), z.unknown())),
+  vitest: z.optional(z.record(z.string(), z.unknown())),
 });
 
 export type StrykerConfig = z.output<typeof configSchema>;

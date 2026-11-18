@@ -38,8 +38,8 @@ const survivorSchema = z.object({
   group: z.enum(mutantGroups),
   original: z.string(),
   replacement: z.string(),
-  covered: z.boolean().nullable(),
-  function: z.string().optional(),
+  covered: z.nullable(z.boolean()),
+  function: z.optional(z.string()),
 });
 
 const totalsSchema = z.object({
@@ -56,9 +56,9 @@ const statusSchema = z.enum(['pass', 'survivors', 'nothing', 'error']);
 const reportSchema = z.object({
   version: z.literal(1),
   status: statusSchema,
-  error: z.string().optional(),
+  error: z.optional(z.string()),
   survivors: z.array(survivorSchema),
-  falseSurvivors: z.array(survivorSchema).optional(),
+  falseSurvivors: z.optional(z.array(survivorSchema)),
   totals: totalsSchema,
 });
 

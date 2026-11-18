@@ -308,7 +308,9 @@ describe('changedScope', () => {
       mutate: ['lib/a.ts:3-3', 'lib/a.ts:19-20'],
     },
   ])('lists $name as mutate ranges', ({ diff, mutate }) => {
-    expect(changedScope(diff, [], isProduction).flatMap(mutatePatterns)).toEqual([...mutate]);
+    const patterns = changedScope(diff, [], isProduction).flatMap(mutatePatterns);
+
+    expect(patterns).toEqual([...mutate]);
   });
 
   it('adds untracked files whole and sorts by path', () => {
@@ -417,10 +419,9 @@ describe('changedLinesDiffArguments', () => {
 
     const diff = await git(...userSettings, ...changedLinesDiffArguments('HEAD'));
 
-    expect(changedScope(diff, [], isProduction).flatMap(mutatePatterns)).toEqual([
-      'lib/a.ts:2-2',
-      'lib/a.ts:10-10',
-    ]);
+    const patterns = changedScope(diff, [], isProduction).flatMap(mutatePatterns);
+
+    expect(patterns).toEqual(['lib/a.ts:2-2', 'lib/a.ts:10-10']);
   });
 });
 
@@ -520,10 +521,9 @@ describe('changedScope with real Git output', () => {
 
     const diff = await git(...changedLinesDiffArguments('HEAD'));
 
-    expect(changedScope(diff, [], isProduction).flatMap(mutatePatterns)).toEqual([
-      'lib/café.ts:1-1',
-      'lib/with space.ts:1-1',
-    ]);
+    const patterns = changedScope(diff, [], isProduction).flatMap(mutatePatterns);
+
+    expect(patterns).toEqual(['lib/café.ts:1-1', 'lib/with space.ts:1-1']);
   });
 });
 
@@ -560,9 +560,9 @@ describe('changedScope with a C-quoted path', () => {
 
     const diff = await git(...changedLinesDiffArguments('HEAD'));
 
-    expect(changedScope(diff, [], isProduction).flatMap(mutatePatterns)).toEqual([
-      'lib/q"uote.ts:1-1',
-    ]);
+    const patterns = changedScope(diff, [], isProduction).flatMap(mutatePatterns);
+
+    expect(patterns).toEqual(['lib/q"uote.ts:1-1']);
   });
 });
 
@@ -692,7 +692,9 @@ describe('changedScope with an emoji and a quote in the name', () => {
 
     const diff = await git(...changedLinesDiffArguments('HEAD'));
 
-    expect(changedScope(diff, [], isProduction).map(({ path }) => path)).toEqual([`lib/${name}`]);
+    const paths = changedScope(diff, [], isProduction).map(({ path }) => path);
+
+    expect(paths).toEqual([`lib/${name}`]);
   });
 });
 
