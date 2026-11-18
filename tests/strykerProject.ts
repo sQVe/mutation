@@ -46,9 +46,13 @@ export const mutantAt = (line: number, status: MutantStatus = 'Survived'): Mutan
   location: { start: { line, column: 1 }, end: { line, column: 5 } },
 });
 
-export const reportOf = (files: Record<string, Mutant[]>): StrykerReport => ({
-  files: Object.fromEntries(Object.entries(files).map(([path, mutants]) => [path, { mutants }])),
-});
+export const reportOf = (files: Record<string, Mutant[]>): StrykerReport => {
+  const fileEntries = Object.entries(files).map(
+    ([path, mutants]): [string, { mutants: Mutant[] }] => [path, { mutants }],
+  );
+
+  return { files: Object.fromEntries(fileEntries) };
+};
 
 const strykerStub = `import { appendFileSync, existsSync, fstatSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';

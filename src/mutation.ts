@@ -140,10 +140,14 @@ const withScopeMutants = (report: StrykerReport, scopes: readonly FileScope[]): 
   return { ...report, files };
 };
 
-const readSources = (root: string, report: StrykerReport) =>
-  Object.fromEntries(
-    Object.keys(report.files).map((path) => [path, readFileSync(join(root, path), 'utf8')]),
-  );
+const readSources = (root: string, report: StrykerReport) => {
+  const sourceEntries = Object.keys(report.files).map((path): [string, string] => [
+    path,
+    readFileSync(join(root, path), 'utf8'),
+  ]);
+
+  return Object.fromEntries(sourceEntries);
+};
 
 const assertSupportedIgnorers = (command: Command, config: StrykerConfig) => {
   const preInstruments = command.maxMutants !== undefined || command.sameFolderTests;

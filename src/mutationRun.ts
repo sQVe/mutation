@@ -36,13 +36,13 @@ export interface StrykerRun {
 }
 
 const reportSchema = z.looseObject({
-  config: z
-    .looseObject({
-      ignoreStatic: z.boolean().optional(),
-      testRunner: z.string().optional(),
-      vitest: z.looseObject({ related: z.boolean().optional() }).optional(),
-    })
-    .optional(),
+  config: z.optional(
+    z.looseObject({
+      ignoreStatic: z.optional(z.boolean()),
+      testRunner: z.optional(z.string()),
+      vitest: z.optional(z.looseObject({ related: z.optional(z.boolean()) })),
+    }),
+  ),
   files: z.record(
     z.string(),
     z.looseObject({
@@ -61,12 +61,12 @@ const reportSchema = z.looseObject({
       ),
     }),
   ),
-  testFiles: z
-    .record(
+  testFiles: z.optional(
+    z.record(
       z.string(),
       z.looseObject({ tests: z.array(z.looseObject({ id: z.string(), name: z.string() })) }),
-    )
-    .optional(),
+    ),
+  ),
 });
 
 // Stryker runs from the project, so its bin resolves from there.
@@ -175,12 +175,12 @@ const runFolder = (
   if (config.testRunner === 'vitest') {
     const base = projectVitestConfig(root, config);
 
-    const source = vitestFolderConfigSource(
+    const baseConfig =
       base === undefined
         ? undefined
-        : { viteUrl: viteUrlOf(root), path: relative(root, base), markerPath },
-      testFiles,
-    );
+        : { viteUrl: viteUrlOf(root), path: relative(root, base), markerPath };
+
+    const source = vitestFolderConfigSource(baseConfig, testFiles);
 
     writeFileSync(vitestConfigFile, source);
   }

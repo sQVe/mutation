@@ -134,13 +134,16 @@ describe('rankSurvivors', () => {
   it('keeps the covered and uncovered survivors of one line in one High entry', () => {
     const ranked = rankSurvivors(fixtureReport(), []);
 
-    expect(
-      ranked.high.find(({ line }) => line === 130)?.survivors.map(({ mutator }) => mutator),
-    ).toEqual(['ConditionalExpression', 'BlockStatement']);
+    const mutatorsOfLine130 = ranked.high
+      .find(({ line }) => line === 130)
+      ?.survivors.map(({ mutator }) => mutator);
 
-    expect(
-      ranked.high.find(({ line }) => line === 136)?.survivors.map(({ covered }) => covered),
-    ).toEqual([true, false]);
+    const coveredOfLine136 = ranked.high
+      .find(({ line }) => line === 136)
+      ?.survivors.map(({ covered }) => covered);
+
+    expect(mutatorsOfLine130).toEqual(['ConditionalExpression', 'BlockStatement']);
+    expect(coveredOfLine136).toEqual([true, false]);
   });
 
   it('moves a low-weight literal to Low and a low-weight control-flow mutant from High to Medium', () => {
@@ -260,9 +263,11 @@ describe('rankSurvivors', () => {
       'src/b.ts:1',
     ]);
 
-    expect(
-      ranked.medium.find(({ line }) => line === 2)?.survivors.map(({ column }) => column),
-    ).toEqual([1, 9]);
+    const columnsOfLine2 = ranked.medium
+      .find(({ line }) => line === 2)
+      ?.survivors.map(({ column }) => column);
+
+    expect(columnsOfLine2).toEqual([1, 9]);
   });
 
   it('raises an entry to High when a later survivor of the line has the higher rank', () => {

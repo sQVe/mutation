@@ -20,15 +20,21 @@ const mutant = (fields: Partial<Mutant>): Mutant => ({
 const factsOf = (
   files: Record<string, Mutant[]>,
   fields: Partial<MutationFacts> = {},
-): MutationFacts => ({
-  mode: 'changed',
-  stryker: {
-    files: Object.fromEntries(Object.entries(files).map(([path, mutants]) => [path, { mutants }])),
-  },
-  sources: {},
-  unmutated: [],
-  ...fields,
-});
+): MutationFacts => {
+  const fileEntries = Object.entries(files).map(
+    ([path, mutants]): [string, { mutants: Mutant[] }] => [path, { mutants }],
+  );
+
+  const strykerFiles = Object.fromEntries(fileEntries);
+
+  return {
+    mode: 'changed',
+    stryker: { files: strykerFiles },
+    sources: {},
+    unmutated: [],
+    ...fields,
+  };
+};
 
 const at = (line: number, column: number) => ({
   start: { line, column },

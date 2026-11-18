@@ -288,11 +288,8 @@ describe('action.yml run script', () => {
 
     expect(result.status).toBe(0);
 
-    const commandNames = new Set(
-      readFileSync(commandEnvironment, 'utf8')
-        .split('\n')
-        .map((line) => line.slice(0, line.indexOf('='))),
-    );
+    const environmentLines = readFileSync(commandEnvironment, 'utf8').split('\n');
+    const commandNames = new Set(environmentLines.map((line) => line.slice(0, line.indexOf('='))));
 
     expect(commandNames.has('MUTATION_REPORT_TOKEN')).toBe(false);
     expect(commandNames.has('GITHUB_TOKEN')).toBe(false);

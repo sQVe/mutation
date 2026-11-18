@@ -181,10 +181,11 @@ describe('mutate in changed mode', () => {
       },
     ]);
 
-    await writeFile(
-      join(project.root, 'src/math.ts'),
-      spread.replace('input + 3;', 'input + 30;').replace('input + 9;', 'input + 90;'),
-    );
+    const updatedSpread = spread
+      .replace('input + 3;', 'input + 30;')
+      .replace('input + 9;', 'input + 90;');
+
+    await writeFile(join(project.root, 'src/math.ts'), updatedSpread);
 
     const { report } = await mutate(changed(), project.root);
 

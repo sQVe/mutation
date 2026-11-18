@@ -1,4 +1,4 @@
-import { format, lint, vitest } from '@sqve/seam';
+import { format, lint, vitest } from '@sqve/stomme-ts-style';
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
