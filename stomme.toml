@@ -76,7 +76,7 @@ imports = [
 [modules.mutationCli]
 entry = "src/mutationCli.ts"
 public = []
-imports = ["errorMessage", "mutationReport", "mutationScope", "reportCommand"]
+imports = ["errorMessage", "mutation", "mutationReport", "mutationScope", "reportCommand"]
 
 [modules.mutationConfig]
 entry = "src/mutationConfig.ts"
