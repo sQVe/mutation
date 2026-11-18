@@ -1,5 +1,35 @@
 # @sqve/mutation
 
+## 0.3.0
+
+### Minor Changes
+
+- [#15](https://github.com/sQVe/mutation/pull/15)
+  [`46b7b54`](https://github.com/sQVe/mutation/commit/46b7b54b2d852192f659e4da260b54f95c678a87)
+  Thanks [@sQVe](https://github.com/sQVe)! - Move the shared run settings into the package. A
+  project config now holds only what is particular to it, and a value the project sets still wins.
+
+  - `concurrency` defaults to `25%` of the CPU count. Stryker's own `cpuCount - 1` starts a test
+    runner per core, which timed out mutants on a large monorepo.
+  - `timeoutMS: 20000`, `timeoutFactor: 4`, and `dryRunTimeoutMinutes: 20`.
+  - `fileLogLevel: 'off'`.
+  - `tempDirName: '.tau/stryker-tmp'`, `cleanTempDir: true`, `incremental: true`, and
+    `incrementalFile: '.tau/stryker-incremental.json'`, so runs reuse earlier results and leave no
+    temp directory behind. `audit` and `--same-folder-tests` runs turn `incremental` off, because
+    they must not reuse another run's result.
+  - `coverageAnalysis: 'perTest'`.
+
+  The temp directory and the incremental file live under `.tau/`, so ignore that folder in Git. The
+  report holds only the mutants of the current diff, because Stryker's incremental file can add a
+  result from an earlier run.
+
+### Patch Changes
+
+- [#18](https://github.com/sQVe/mutation/pull/18)
+  [`5f81e76`](https://github.com/sQVe/mutation/commit/5f81e76d9dddc61001fffc39ffcfc3b4b828a92e)
+  Thanks [@sQVe](https://github.com/sQVe)! - Follow the `@sqve/stomme-ts-style` house rules in the
+  code. Behavior does not change.
+
 ## 0.2.0
 
 ### Minor Changes
