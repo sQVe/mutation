@@ -36,8 +36,6 @@ decision or its reasons. -->
 
 ### Positive
 
-<!-- What this choice gains, one bullet each. -->
-
 ### Negative
 
 <!-- The costs and limits we accept, one bullet each. Describe consequences of the choice, not
