@@ -65,6 +65,14 @@ describe('parseSurvivorReport', () => {
     ).toThrow(/shared shape/);
   });
 
+  it('rejects a report whose falseSurvivors is not a list of survivors', () => {
+    const report = { ...reportOf(), falseSurvivors: [{ file: 'src/a.ts' }] };
+
+    expect(() => parseSurvivorReport(JSON.stringify(report))).toThrow(
+      /not in the shared shape[\s\S]*falseSurvivors\[0\]/,
+    );
+  });
+
   it.each(['\nsrc/a.ts', 'src/a.ts\n', 'src/a.ts\r', ''])(
     'rejects the survivor file %j',
     (file) => {

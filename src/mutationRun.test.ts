@@ -102,6 +102,9 @@ const reportWithStatus = (status: string) =>
 const reportWithConfig = (config: Record<string, unknown>) =>
   JSON.stringify({ config, files: { 'src/a.ts': { mutants: [mutantAt(1)] } } });
 
+const reportWithTestFiles = (testFiles: unknown) =>
+  JSON.stringify({ files: { 'src/a.ts': { mutants: [mutantAt(1)] } }, testFiles });
+
 describe('runStrykerReport', () => {
   it('returns the report that Stryker wrote', async () => {
     const report = reportOf({ 'src/a.ts': [mutantAt(1, 'Killed'), mutantAt(2)] });
@@ -224,6 +227,16 @@ describe('runStrykerReport', () => {
     {
       name: 'a config with a vitest.related that is not a boolean',
       response: { rawReport: reportWithConfig({ vitest: { related: 'yes' } }) },
+      error: /unusable report/,
+    },
+    {
+      name: 'a testFiles entry whose tests are not a list',
+      response: { rawReport: reportWithTestFiles({ 'a.test.ts': { tests: 'all' } }) },
+      error: /unusable report/,
+    },
+    {
+      name: 'a testFiles test with no name',
+      response: { rawReport: reportWithTestFiles({ 'a.test.ts': { tests: [{ id: 'a' }] } }) },
       error: /unusable report/,
     },
   ])('fails on $name', async ({ response, error }) => {
