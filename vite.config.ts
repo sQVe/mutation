@@ -9,7 +9,7 @@ export default defineConfig({
   fmt: {
     ...format,
     // Local agent state is not source and must not be reformatted.
-    ignorePatterns: ['pnpm-lock.yaml', '.tau/**', 'dist/**'],
+    ignorePatterns: ['pnpm-lock.yaml', '.tau/**', 'dist/**', 'docs/stomme/**'],
   },
   test: {
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],

@@ -1,0 +1,124 @@
+schema = 1
+version = "0.2.0"
+language = "typescript"
+layers = []
+
+[roles]
+cli = "src"
+
+[[violations]]
+path = "src"
+rule = "role-folder"
+key = "cli:src"
+
+[[violations]]
+path = "src/mutation.ts"
+rule = "typescript-owner-folder"
+key = "mutationCli.ts"
+
+[[violations]]
+path = "src/mutation.ts"
+rule = "typescript-owner-folder"
+key = "mutationConfig.ts"
+
+[[violations]]
+path = "src/mutation.ts"
+rule = "typescript-owner-folder"
+key = "mutationIgnorePolicy.ts"
+
+[[violations]]
+path = "src/mutation.ts"
+rule = "typescript-owner-folder"
+key = "mutationIgnorer.ts"
+
+[[violations]]
+path = "src/mutation.ts"
+rule = "typescript-owner-folder"
+key = "mutationReport.ts"
+
+[[violations]]
+path = "src/mutation.ts"
+rule = "typescript-owner-folder"
+key = "mutationRun.ts"
+
+[[violations]]
+path = "src/mutation.ts"
+rule = "typescript-owner-folder"
+key = "mutationScope.ts"
+
+[[violations]]
+path = "src/survivorReport.ts"
+rule = "typescript-owner-folder"
+key = "survivorReportOutput.ts"
+
+[modules.cli]
+entry = "src/cli.ts"
+public = []
+imports = ["mutationCli"]
+
+[modules.errorMessage]
+entry = "src/errorMessage.ts"
+public = []
+imports = []
+
+[modules.mutation]
+entry = "src/mutation.ts"
+public = []
+imports = [
+  "mutationConfig",
+  "mutationIgnorePolicy",
+  "mutationIgnorer",
+  "mutationReport",
+  "mutationRun",
+  "mutationScope",
+]
+
+[modules.mutationCli]
+entry = "src/mutationCli.ts"
+public = []
+imports = ["errorMessage", "mutationReport", "mutationScope", "reportCommand"]
+
+[modules.mutationConfig]
+entry = "src/mutationConfig.ts"
+public = []
+imports = ["mutationIgnorePolicy", "mutationReport"]
+
+[modules.mutationIgnorePolicy]
+entry = "src/mutationIgnorePolicy.ts"
+public = []
+imports = []
+
+[modules.mutationIgnorer]
+entry = "src/mutationIgnorer.ts"
+public = []
+imports = ["mutationIgnorePolicy"]
+
+[modules.mutationReport]
+entry = "src/mutationReport.ts"
+public = []
+imports = []
+
+[modules.mutationRun]
+entry = "src/mutationRun.ts"
+public = []
+imports = ["mutationConfig", "mutationReport", "mutationScope"]
+
+[modules.mutationScope]
+entry = "src/mutationScope.ts"
+public = []
+imports = []
+
+[modules.reportCommand]
+entry = "src/reportCommand.ts"
+public = []
+imports = ["errorMessage", "mutationCli", "survivorReport", "survivorReportOutput"]
+
+[modules.survivorReport]
+entry = "src/survivorReport.ts"
+public = []
+imports = ["errorMessage"]
+
+[modules.survivorReportOutput]
+entry = "src/survivorReportOutput.ts"
+public = []
+imports = ["survivorReport"]
