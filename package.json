@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "minimatch": "10.2.6",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@changesets/changelog-github": "1.0.1",
