@@ -67,7 +67,7 @@
     "@stryker-mutator/vitest-runner": "10.0.0",
     "@types/node": "24.13.3",
     "typescript": "7.0.2",
-    "vite-plus": "0.3.0",
+    "vite-plus": "1.1.0",
     "vitest": "4.1.11"
   },
   "peerDependencies": {
